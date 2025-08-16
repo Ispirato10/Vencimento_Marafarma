@@ -1,9 +1,9 @@
 
 'use client';
 
-import { createContext, useState, ReactNode } from 'react';
+import { createContext, useState, ReactNode, useEffect } from 'react';
 import type { Product, CatalogItem } from '@/types';
-import { initialProducts, initialCatalog } from '@/lib/data';
+import { initialProducts, initialCatalog, initialLogo } from '@/lib/data';
 
 interface DataContextType {
   products: Product[];
@@ -16,6 +16,9 @@ interface DataContextType {
   addCatalogItem: (item: CatalogItem) => void;
   updateCatalogItem: (itemToUpdate: CatalogItem) => void;
   deleteCatalogItem: (itemCode: string) => void;
+  logo: string | null;
+  setLogo: (logoData: string) => void;
+  isLoading: boolean;
 }
 
 export const DataContext = createContext<DataContextType>({
@@ -29,11 +32,58 @@ export const DataContext = createContext<DataContextType>({
   addCatalogItem: () => {},
   updateCatalogItem: () => {},
   deleteCatalogItem: () => {},
+  logo: null,
+  setLogo: () => {},
+  isLoading: true,
 });
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [catalog, setCatalog] = useState<CatalogItem[]>(initialCatalog);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [logo, setLogoState] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load initial data from localStorage or fallback to initialData
+  useEffect(() => {
+    try {
+      const storedProducts = localStorage.getItem('products');
+      const storedCatalog = localStorage.getItem('catalog');
+      const storedLogo = localStorage.getItem('logo');
+
+      setProducts(storedProducts ? JSON.parse(storedProducts) : initialProducts);
+      setCatalog(storedCatalog ? JSON.parse(storedCatalog) : initialCatalog);
+      setLogoState(storedLogo || initialLogo);
+
+    } catch (error) {
+      console.error("Failed to load data from localStorage", error);
+      // Fallback to initial data if localStorage fails
+      setProducts(initialProducts);
+      setCatalog(initialCatalog);
+      setLogoState(initialLogo);
+    } finally {
+        // Simulate loading time
+        setTimeout(() => setIsLoading(false), 1500);
+    }
+  }, []);
+
+  // Save data to localStorage whenever it changes
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('products', JSON.stringify(products));
+    }
+  }, [products, isLoading]);
+
+  useEffect(() => {
+     if (!isLoading) {
+      localStorage.setItem('catalog', JSON.stringify(catalog));
+    }
+  }, [catalog, isLoading]);
+
+  useEffect(() => {
+    if (logo && !isLoading) {
+      localStorage.setItem('logo', logo);
+    }
+  }, [logo, isLoading]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
@@ -75,6 +125,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCatalog((prevCatalog) => prevCatalog.filter((item) => item.code !== itemCode));
   };
 
+  const setLogo = (logoData: string) => {
+    setLogoState(logoData);
+  }
+
 
   return (
     <DataContext.Provider value={{ 
@@ -88,6 +142,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         addCatalogItem,
         updateCatalogItem,
         deleteCatalogItem,
+        logo,
+        setLogo,
+        isLoading,
     }}>
       {children}
     </DataContext.Provider>

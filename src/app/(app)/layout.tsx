@@ -1,18 +1,29 @@
+
+'use client';
+
+import { useContext, useEffect, useState } from 'react';
 import { Menu, Package } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { MainNav } from './_components/main-nav';
-import { DataProvider } from '@/context/data-context';
+import { DataContext, DataProvider } from '@/context/data-context';
+import { SplashScreen } from './_components/splash-screen';
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function AppLayoutContent({ children }: { children: React.ReactNode }) {
+  const { isLoading, logo } = useContext(DataContext);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  if (!isClient || isLoading) {
+    return <SplashScreen logo={logo} />;
+  }
+
   return (
-    <DataProvider>
       <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
         <div className="hidden border-r bg-muted/40 md:block">
           <div className="flex h-full max-h-screen flex-col gap-2">
@@ -53,6 +64,18 @@ export default function AppLayout({
           </main>
         </div>
       </div>
+  )
+}
+
+
+export default function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <DataProvider>
+      <AppLayoutContent>{children}</AppLayoutContent>
     </DataProvider>
   );
 }
