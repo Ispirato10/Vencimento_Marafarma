@@ -1,4 +1,10 @@
+
+"use client";
+
+import { useRef } from 'react';
 import { FileUp, FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -8,11 +14,89 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ThemeToggle } from '../_components/theme-toggle';
+import { ThemeToggle } from '@/app/(app)/_components/theme-toggle';
+import { useToast } from '@/hooks/use-toast';
+import { catalog, products } from '@/lib/data';
+import type { CatalogItem, Product } from '@/types';
+
 
 export default function SettingsPage() {
+  const { toast } = useToast();
+  const catalogImportRef = useRef<HTMLInputElement>(null);
+
+  const handleExportCatalog = () => {
+    const worksheet = XLSX.utils.json_to_sheet(catalog);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Catálogo');
+    XLSX.writeFile(workbook, 'catalogo_produtos.xlsx');
+    toast({ title: 'Sucesso!', description: 'Catálogo de produtos exportado.' });
+  };
+
+  const handleExportDatabase = () => {
+    const dataToExport = products.map(p => ({
+      ...p,
+      expirationDate: format(p.expirationDate, 'yyyy-MM-dd'),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Estoque');
+    XLSX.writeFile(workbook, 'banco_de_dados_completo.xlsx');
+    toast({ title: 'Sucesso!', description: 'Banco de dados completo exportado.' });
+  };
+  
+  const handleImportCatalogClick = () => {
+    catalogImportRef.current?.click();
+  };
+
+  const handleCatalogFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Nenhum arquivo selecionado.' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json<CatalogItem>(worksheet);
+        
+        // Aqui você processaria os dados `json` (ex: enviar para um backend)
+        console.log('Dados do catálogo importado:', json);
+
+        toast({
+          title: 'Sucesso!',
+          description: `${json.length} itens do catálogo foram importados. (Simulado)`,
+          variant: 'accent'
+        });
+      } catch (error) {
+        console.error('Erro ao importar arquivo:', error);
+        toast({ variant: 'destructive', title: 'Erro de Importação', description: 'Ocorreu um erro ao ler o arquivo. Verifique se o formato está correto.' });
+      }
+    };
+    reader.onerror = () => {
+       toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo selecionado.' });
+    };
+    reader.readAsArrayBuffer(file);
+    
+    // Limpa o valor do input para permitir a seleção do mesmo arquivo novamente
+    event.target.value = '';
+  };
+
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      <input 
+        type="file"
+        ref={catalogImportRef}
+        onChange={handleCatalogFileChange}
+        className="hidden"
+        accept=".xlsx, .xls"
+      />
+
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
@@ -51,13 +135,13 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleImportCatalogClick}>
                 <FileUp className="mr-2 h-4 w-4" />
-                Importar
+                Importar (XLSX)
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleExportCatalog}>
                 <FileDown className="mr-2 h-4 w-4" />
-                Exportar
+                Exportar (XLSX)
               </Button>
             </div>
           </div>
@@ -68,9 +152,9 @@ export default function SettingsPage() {
                 Exporte todos os produtos em estoque com lotes e validades.
               </p>
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExportDatabase}>
               <FileDown className="mr-2 h-4 w-4" />
-              Exportar
+              Exportar (XLSX)
             </Button>
           </div>
         </CardContent>
