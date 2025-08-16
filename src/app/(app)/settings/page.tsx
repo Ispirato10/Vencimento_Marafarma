@@ -71,6 +71,35 @@ export default function SettingsPage() {
   const handleImportCatalogClick = () => {
     catalogImportRef.current?.click();
   };
+  
+  // To update the progress bar without freezing the UI
+  const processInChunks = async <T,>(items: any[], processChunk: (chunk: any[]) => T[], onComplete: (results: T[]) => void) => {
+    setIsImporting(true);
+    setImportProgress(0);
+    
+    let i = 0;
+    const totalItems = items.length;
+    const results: T[] = [];
+
+    const step = async () => {
+        if (i < totalItems) {
+            const chunk = items.slice(i, i + 1);
+            const processedChunk = processChunk(chunk);
+            results.push(...processedChunk);
+            const progress = Math.round(((i + 1) / totalItems) * 100);
+            setImportProgress(progress);
+            i += 1;
+            // Brief pause to allow UI to re-render
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await step();
+        } else {
+            onComplete(results);
+            setIsImporting(false);
+        }
+    }
+    
+    await step();
+  };
 
   const handleCatalogFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -78,61 +107,80 @@ export default function SettingsPage() {
       toast({ variant: 'destructive', title: 'Erro', description: 'Nenhum arquivo selecionado.' });
       return;
     }
-
+    
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<CatalogItem>(worksheet);
-        
-        // Basic validation
-        if (!json.every(item => 'code' in item && 'name' in item && 'category' in item)) {
-          throw new Error('O arquivo de catálogo parece ter colunas inválidas. Verifique se as colunas "code", "name" e "category" existem.');
-        }
+        const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
-        setCatalog(json);
+        const processCatalogChunk = (chunk: any[]): CatalogItem[] => {
+            const item = chunk[0];
+            // Basic validation for each item
+            if (item.code && item.name) {
+                return [{
+                    code: String(item.code),
+                    name: String(item.name),
+                    category: String(item.category || ''),
+                }];
+            }
+            return [];
+        };
 
-        toast({
-          title: 'Sucesso!',
-          description: `${json.length} itens do catálogo foram importados.`,
-          variant: 'accent'
-        });
+        const onCatalogImportComplete = (processedCatalog: CatalogItem[]) => {
+            const validItems = processedCatalog.filter(c => c);
+            const skippedCount = json.length - validItems.length;
+
+            if (validItems.length > 0) {
+                setCatalog(validItems);
+                toast({
+                    title: 'Importação Concluída!',
+                    description: `${validItems.length} itens do catálogo foram importados.`,
+                    variant: 'accent'
+                });
+            }
+
+            if (skippedCount > 0) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Itens Ignorados',
+                    description: `${skippedCount} itens foram ignorados por falta de 'código' ou 'nome'.`,
+                });
+            }
+
+            if (validItems.length === 0 && skippedCount > 0) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Importação Falhou',
+                    description: 'Nenhum item válido encontrado. Verifique as colunas do arquivo.',
+                });
+            }
+        };
+
+        await processInChunks(json, processCatalogChunk, onCatalogImportComplete);
+      
       } catch (error) {
-        console.error('Erro ao importar arquivo:', error);
+        console.error('Erro ao importar arquivo de catálogo:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato está correto.';
         toast({ variant: 'destructive', title: 'Erro de Importação', description: errorMessage });
+        setIsImporting(false);
       }
     };
     reader.onerror = () => {
        toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo selecionado.' });
+       setIsImporting(false);
     };
     reader.readAsArrayBuffer(file);
     
     event.target.value = '';
   };
-  
+
   const handleImportDatabaseClick = () => {
     databaseImportRef.current?.click();
   };
-  
-  // To update the progress bar without freezing the UI
-  const processInChunks = async (items: any[], callback: (chunk: any[]) => void) => {
-    let i = 0;
-    const totalItems = items.length;
-    while (i < totalItems) {
-      const chunk = items.slice(i, i + 1);
-      callback(chunk);
-      const progress = Math.round(((i + 1) / totalItems) * 100);
-      setImportProgress(progress);
-      // Brief pause to allow UI to re-render
-      await new Promise(resolve => setTimeout(resolve, 0));
-      i += 1;
-    }
-  };
-
 
   const handleDatabaseFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -140,9 +188,6 @@ export default function SettingsPage() {
       toast({ variant: 'destructive', title: 'Erro', description: 'Nenhum arquivo selecionado.' });
       return;
     }
-
-    setIsImporting(true);
-    setImportProgress(0);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -153,10 +198,7 @@ export default function SettingsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
         
-        const processedProducts: Product[] = [];
-        const skippedRows: string[] = [];
-
-        await processInChunks(json, (chunk) => {
+        const processProductChunk = (chunk: any[]): Product[] => {
             const item = chunk[0];
             let expirationDate: Date | null = null;
             const dateValue = item.expirationDate;
@@ -165,61 +207,64 @@ export default function SettingsPage() {
 
             if (hasRequiredColumns) {
                 if (typeof dateValue === 'string') {
-                expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
-                if (isNaN(expirationDate.getTime())) {
-                    expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
-                }
+                    expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
+                    if (isNaN(expirationDate.getTime())) {
+                        expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
+                    }
                 } else if (typeof dateValue === 'number') {
-                expirationDate = excelSerialDateToJSDate(dateValue);
+                    expirationDate = excelSerialDateToJSDate(dateValue);
                 }
 
                 if (expirationDate && !isNaN(expirationDate.getTime())) {
-                processedProducts.push({
-                    code: String(item.code),
-                    name: String(item.name),
-                    category: String(item.category || ''),
-                    quantity: Number(item.quantity),
-                    batch: String(item.batch || ''),
-                    expirationDate: expirationDate.toISOString(),
-                });
-                } else {
-                skippedRows.push(item.name || item.code || `Linha desconhecida`);
+                    return [{
+                        code: String(item.code),
+                        name: String(item.name),
+                        category: String(item.category || ''),
+                        quantity: Number(item.quantity),
+                        batch: String(item.batch || ''),
+                        expirationDate: expirationDate.toISOString(),
+                    }];
                 }
-            } else {
-                skippedRows.push(item.name || item.code || `Linha desconhecida`);
             }
-        });
+            return []; // Return empty for invalid rows
+        };
 
-        if (processedProducts.length > 0) {
-            setProducts(processedProducts);
-            toast({
-              title: 'Importação Concluída!',
-              description: `${processedProducts.length} produtos foram importados para o estoque.`,
-              variant: 'accent'
-            });
-        }
+        const onDatabaseImportComplete = (processedProducts: Product[]) => {
+            const validProducts = processedProducts.filter(p => p);
+            const skippedCount = json.length - validProducts.length;
 
-        if (skippedRows.length > 0) {
-            toast({
-              variant: 'destructive',
-              title: 'Alguns Itens Foram Ignorados',
-              description: `Não foi possível importar ${skippedRows.length} itens por falta de dados. Verifique o arquivo.`,
-            });
-        }
+            if (validProducts.length > 0) {
+                setProducts(validProducts);
+                toast({
+                  title: 'Importação Concluída!',
+                  description: `${validProducts.length} produtos foram importados para o estoque.`,
+                  variant: 'accent'
+                });
+            }
 
-        if (processedProducts.length === 0 && skippedRows.length > 0) {
-             toast({
-              variant: 'destructive',
-              title: 'Importação Falhou',
-              description: 'Nenhum produto foi importado. Verifique se as colunas do arquivo estão corretas.',
-            });
-        }
+            if (skippedCount > 0) {
+                toast({
+                  variant: 'destructive',
+                  title: 'Alguns Itens Foram Ignorados',
+                  description: `Não foi possível importar ${skippedCount} itens por falta de dados ou data inválida.`,
+                });
+            }
+
+            if (validProducts.length === 0 && skippedCount > 0) {
+                 toast({
+                  variant: 'destructive',
+                  title: 'Importação Falhou',
+                  description: 'Nenhum produto foi importado. Verifique se as colunas do arquivo estão corretas.',
+                });
+            }
+        };
+        
+        await processInChunks(json, processProductChunk, onDatabaseImportComplete);
 
       } catch (error) {
-        console.error('Erro ao importar arquivo:', error);
+        console.error('Erro ao importar arquivo de banco de dados:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato e as colunas estão corretos.';
         toast({ variant: 'destructive', title: 'Erro de Importação', description: errorMessage });
-      } finally {
         setIsImporting(false);
       }
     };
@@ -246,7 +291,7 @@ export default function SettingsPage() {
       <input 
         type="file"
         ref={databaseImportRef}
-        onChange={handleDatabaseFileChange}
+        onChange={handleDatabaseFilechange}
         className="hidden"
         accept=".xlsx, .xls"
         disabled={isImporting}
@@ -282,23 +327,25 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h3 className="font-medium">Catálogo de Produtos</h3>
-              <p className="text-sm text-muted-foreground">
-                Importe ou exporte o catálogo base de produtos.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleImportCatalogClick} disabled={isImporting}>
-                <FileUp className="mr-2 h-4 w-4" />
-                Importar (XLSX)
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExportCatalog}>
-                <FileDown className="mr-2 h-4 w-4" />
-                Exportar (XLSX)
-              </Button>
-            </div>
+          <div className="flex flex-col p-4 border rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">Catálogo de Produtos</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Importe ou exporte o catálogo base de produtos.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleImportCatalogClick} disabled={isImporting}>
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Importar (XLSX)
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportCatalog} disabled={isImporting}>
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Exportar (XLSX)
+                  </Button>
+                </div>
+              </div>
           </div>
           <div className="flex flex-col p-4 border rounded-lg space-y-4">
             <div className="flex items-center justify-between">
@@ -313,19 +360,19 @@ export default function SettingsPage() {
                   <FileUp className="mr-2 h-4 w-4" />
                   Importar (XLSX)
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleExportDatabase}>
+                <Button variant="outline" size="sm" onClick={handleExportDatabase} disabled={isImporting}>
                   <FileDown className="mr-2 h-4 w-4" />
                   Exportar (XLSX)
                 </Button>
               </div>
             </div>
-            {isImporting && (
-              <div className="flex items-center gap-4">
-                 <Progress value={importProgress} className="w-[60%]" />
-                 <span className="text-sm font-medium text-muted-foreground">{`Importando... ${importProgress}%`}</span>
-              </div>
-            )}
           </div>
+          {isImporting && (
+            <div className="flex items-center gap-4 pt-4">
+                <Progress value={importProgress} className="w-[60%]" />
+                <span className="text-sm font-medium text-muted-foreground">{`Importando... ${importProgress}%`}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
