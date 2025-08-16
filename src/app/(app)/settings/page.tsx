@@ -37,6 +37,10 @@ export default function SettingsPage() {
   const databaseImportRef = useRef<HTMLInputElement>(null);
 
   const handleExportCatalog = () => {
+    if (catalog.length === 0) {
+      toast({ variant: 'destructive', title: 'Nada para Exportar', description: 'Seu catálogo de produtos está vazio.' });
+      return;
+    }
     const worksheet = XLSX.utils.json_to_sheet(catalog);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Catálogo');
@@ -45,6 +49,10 @@ export default function SettingsPage() {
   };
 
   const handleExportDatabase = () => {
+    if (products.length === 0) {
+      toast({ variant: 'destructive', title: 'Nada para Exportar', description: 'Seu banco de dados de estoque está vazio.' });
+      return;
+    }
     const dataToExport = products.map(p => ({
       ...p,
       expirationDate: format(new Date(p.expirationDate), 'yyyy-MM-dd'),
@@ -78,7 +86,7 @@ export default function SettingsPage() {
         
         // Basic validation
         if (!json.every(item => 'code' in item && 'name' in item && 'category' in item)) {
-          throw new Error('O arquivo de catálogo parece ter colunas inválidas.');
+          throw new Error('O arquivo de catálogo parece ter colunas inválidas. Verifique se as colunas "code", "name" e "category" existem.');
         }
 
         setCatalog(json);
@@ -122,45 +130,67 @@ export default function SettingsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
         
-        const processedJson: Product[] = json.map((item: any) => {
+        const processedProducts: Product[] = [];
+        const skippedRows: string[] = [];
+
+        json.forEach((item: any, index) => {
           let expirationDate: Date | null = null;
           const dateValue = item.expirationDate;
-
-          if (typeof dateValue === 'string') {
-            // Try parsing yyyy-mm-dd or dd/mm/yyyy
-             expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
-             if (isNaN(expirationDate.getTime())) {
-                expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
-             }
-          } else if (typeof dateValue === 'number') {
-            expirationDate = excelSerialDateToJSDate(dateValue);
-          }
           
-          if (!expirationDate || isNaN(expirationDate.getTime())) {
-            throw new Error(`Data de validade inválida para o produto ${item.name || item.code}: ${item.expirationDate}`);
-          }
+          const hasAllColumns = item.code && item.name && item.category && item.quantity !== undefined && item.batch && dateValue;
+          
+          if (hasAllColumns) {
+             if (typeof dateValue === 'string') {
+                expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
+                if (isNaN(expirationDate.getTime())) {
+                    expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
+                }
+             } else if (typeof dateValue === 'number') {
+                expirationDate = excelSerialDateToJSDate(dateValue);
+             }
 
-          if (!item.code || !item.name || !item.category || item.quantity === undefined || !item.batch) {
-             throw new Error(`Linha inválida no arquivo. Verifique as colunas do produto ${item.name || item.code}.`);
+             if (expirationDate && !isNaN(expirationDate.getTime())) {
+                processedProducts.push({
+                    code: String(item.code),
+                    name: String(item.name),
+                    category: String(item.category),
+                    quantity: Number(item.quantity),
+                    batch: String(item.batch),
+                    expirationDate: expirationDate.toISOString(),
+                });
+             } else {
+                skippedRows.push(item.name || item.code || `Linha ${index + 2}`);
+             }
+          } else {
+             skippedRows.push(item.name || item.code || `Linha ${index + 2}`);
           }
-
-          return {
-            code: String(item.code),
-            name: String(item.name),
-            category: String(item.category),
-            quantity: Number(item.quantity),
-            batch: String(item.batch),
-            expirationDate: expirationDate.toISOString(),
-          };
         });
 
-        setProducts(processedJson);
+        if (processedProducts.length > 0) {
+            setProducts(processedProducts);
+            toast({
+              title: 'Importação Concluída!',
+              description: `${processedProducts.length} produtos foram importados para o estoque.`,
+              variant: 'accent'
+            });
+        }
 
-        toast({
-          title: 'Sucesso!',
-          description: `${processedJson.length} produtos foram importados para o estoque.`,
-          variant: 'accent'
-        });
+        if (skippedRows.length > 0) {
+            toast({
+              variant: 'destructive',
+              title: 'Alguns Itens Foram Ignorados',
+              description: `Não foi possível importar ${skippedRows.length} itens por falta de dados. Verifique o arquivo.`,
+            });
+        }
+
+        if (processedProducts.length === 0 && skippedRows.length > 0) {
+             toast({
+              variant: 'destructive',
+              title: 'Importação Falhou',
+              description: 'Nenhum produto foi importado. Verifique se as colunas do arquivo estão corretas.',
+            });
+        }
+
       } catch (error) {
         console.error('Erro ao importar arquivo:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato e as colunas estão corretos.';
