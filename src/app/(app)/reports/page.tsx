@@ -204,8 +204,8 @@ export default function ReportsPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {filteredProducts.map((product) => (
-                    <TableRow key={`${product.code}-${product.batch}`}>
+                {filteredProducts.map((product, index) => (
+                    <TableRow key={`${product.code}-${product.batch}-${index}`}>
                     <TableCell>
                         <div className="font-medium">{product.name}</div>
                         <div className="text-sm text-muted-foreground">{product.code}</div>

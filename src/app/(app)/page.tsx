@@ -36,8 +36,8 @@ const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {products.map((product) => (
-          <TableRow key={`${product.code}-${product.batch}`}>
+        {products.map((product, index) => (
+          <TableRow key={`${product.code}-${product.batch}-${index}`}>
             <TableCell>
               <div className="font-medium">{product.name}</div>
               <div className="text-sm text-muted-foreground">{product.code}</div>
