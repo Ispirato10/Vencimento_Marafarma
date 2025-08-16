@@ -161,9 +161,9 @@ export default function SettingsPage() {
             let expirationDate: Date | null = null;
             const dateValue = item.expirationDate;
 
-            const hasAllColumns = item.code && item.name && item.category && item.quantity !== undefined && item.batch && dateValue;
+            const hasRequiredColumns = item.code && item.name && item.quantity !== undefined && dateValue;
 
-            if (hasAllColumns) {
+            if (hasRequiredColumns) {
                 if (typeof dateValue === 'string') {
                 expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
                 if (isNaN(expirationDate.getTime())) {
@@ -177,9 +177,9 @@ export default function SettingsPage() {
                 processedProducts.push({
                     code: String(item.code),
                     name: String(item.name),
-                    category: String(item.category),
+                    category: String(item.category || ''),
                     quantity: Number(item.quantity),
-                    batch: String(item.batch),
+                    batch: String(item.batch || ''),
                     expirationDate: expirationDate.toISOString(),
                 });
                 } else {

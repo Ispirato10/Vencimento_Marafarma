@@ -38,8 +38,8 @@ const productFormSchema = z.object({
   code: z.string().min(1, 'Código é obrigatório.'),
   name: z.string().min(1, 'Nome é obrigatório.'),
   quantity: z.coerce.number().min(1, 'Quantidade deve ser maior que 0.'),
-  category: z.string().min(1, 'Categoria é obrigatória.'),
-  batch: z.string().min(1, 'Lote é obrigatório.'),
+  category: z.string(),
+  batch: z.string(),
   expirationDate: z.date({
     required_error: 'Data de validade é obrigatória.',
   }),
