@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, useContext } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { parse, format } from 'date-fns';
+import { parse } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -50,8 +50,17 @@ export function ProductForm() {
   const { toast } = useToast();
   const [isFetching, setIsFetching] = useState(false);
   const [isNewCatalogItem, setIsNewCatalogItem] = useState(false);
-  const codeInputRef = useRef<HTMLInputElement>(null);
   const { catalog, addProduct, addCatalogItem } = useContext(DataContext);
+
+  // Refs for focus management
+  const codeInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const categoryInputRef = useRef<HTMLInputElement>(null);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
+  const batchInputRef = useRef<HTMLInputElement>(null);
+  const expirationDateInputRef = useRef<HTMLInputElement>(null);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -86,6 +95,7 @@ export function ProductForm() {
         title: 'Produto encontrado!',
         description: `Dados de "${catalogItem.name}" preenchidos.`,
       });
+       nameInputRef.current?.focus();
     } else {
        toast({
         variant: 'default',
@@ -93,6 +103,7 @@ export function ProductForm() {
         description: 'Preencha o nome e a categoria manualmente.',
       });
       setIsNewCatalogItem(true);
+      nameInputRef.current?.focus();
     }
   };
   
@@ -128,6 +139,18 @@ export function ProductForm() {
     }
     form.setValue('expirationDate', value, { shouldValidate: true });
   };
+  
+  const handleKeyDown = (e: React.KeyboardEvent, nextFieldRef?: React.RefObject<HTMLElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (nextFieldRef?.current) {
+        nextFieldRef.current.focus();
+      } else {
+         // If no next field, it means we are at the submit button, so we trigger form submission.
+        form.handleSubmit(onSubmit)();
+      }
+    }
+  };
 
 
   return (
@@ -139,7 +162,7 @@ export function ProductForm() {
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(onSubmit)(); }}>
           <CardContent className="space-y-4">
             <FormField
               control={form.control}
@@ -152,8 +175,9 @@ export function ProductForm() {
                       <Input
                         placeholder="Digite ou escaneie o código"
                         {...field}
-                        onBlur={handleCodeBlur}
                         ref={codeInputRef}
+                        onBlur={handleCodeBlur}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCodeBlur(e as any)}
                       />
                       {isFetching && (
                         <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
@@ -172,7 +196,12 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Nome do Produto</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Dipirona 500mg" {...field} />
+                      <Input 
+                        placeholder="Ex: Dipirona 500mg" 
+                        {...field} 
+                        ref={nameInputRef} 
+                        onKeyDown={(e) => handleKeyDown(e, categoryInputRef)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -185,7 +214,12 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Categoria</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Analgésico" {...field} />
+                      <Input 
+                        placeholder="Ex: Analgésico" 
+                        {...field}
+                        ref={categoryInputRef}
+                        onKeyDown={(e) => handleKeyDown(e, quantityInputRef)}
+                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -200,7 +234,13 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Quantidade</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0" {...field} />
+                      <Input 
+                        type="number" 
+                        placeholder="0" 
+                        {...field} 
+                        ref={quantityInputRef}
+                        onKeyDown={(e) => handleKeyDown(e, batchInputRef)}
+                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -213,7 +253,12 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Lote</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: A22B01" {...field} />
+                      <Input 
+                        placeholder="Ex: A22B01" 
+                        {...field}
+                        ref={batchInputRef}
+                        onKeyDown={(e) => handleKeyDown(e, expirationDateInputRef)}
+                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -229,7 +274,9 @@ export function ProductForm() {
                       <Input 
                         placeholder="dd/mm/aaaa"
                         {...field} 
+                        ref={expirationDateInputRef}
                         onChange={handleDateChange} 
+                        onKeyDown={(e) => handleKeyDown(e, submitButtonRef)}
                         maxLength={10}
                       />
                     </FormControl>
@@ -240,7 +287,7 @@ export function ProductForm() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting}>
+            <Button type="submit" disabled={form.formState.isSubmitting} ref={submitButtonRef}>
               {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar Produto
             </Button>
