@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useContext } from 'react';
+import { useRef, useContext, useState } from 'react';
 import { FileUp, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parse } from 'date-fns';
@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { ThemeToggle } from '@/app/(app)/_components/theme-toggle';
 import { useToast } from '@/hooks/use-toast';
 import type { CatalogItem, Product } from '@/types';
@@ -35,6 +36,9 @@ export default function SettingsPage() {
   const { catalog, products, setCatalog, setProducts } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
+
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
 
   const handleExportCatalog = () => {
     if (catalog.length === 0) {
@@ -113,6 +117,22 @@ export default function SettingsPage() {
   const handleImportDatabaseClick = () => {
     databaseImportRef.current?.click();
   };
+  
+  // To update the progress bar without freezing the UI
+  const processInChunks = async (items: any[], callback: (chunk: any[]) => void) => {
+    let i = 0;
+    const totalItems = items.length;
+    while (i < totalItems) {
+      const chunk = items.slice(i, i + 1);
+      callback(chunk);
+      const progress = Math.round(((i + 1) / totalItems) * 100);
+      setImportProgress(progress);
+      // Brief pause to allow UI to re-render
+      await new Promise(resolve => setTimeout(resolve, 0));
+      i += 1;
+    }
+  };
+
 
   const handleDatabaseFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -121,8 +141,11 @@ export default function SettingsPage() {
       return;
     }
 
+    setIsImporting(true);
+    setImportProgress(0);
+
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array', cellDates: false, dateNF: 'yyyy-mm-dd' });
@@ -133,23 +156,24 @@ export default function SettingsPage() {
         const processedProducts: Product[] = [];
         const skippedRows: string[] = [];
 
-        json.forEach((item: any, index) => {
-          let expirationDate: Date | null = null;
-          const dateValue = item.expirationDate;
-          
-          const hasAllColumns = item.code && item.name && item.category && item.quantity !== undefined && item.batch && dateValue;
-          
-          if (hasAllColumns) {
-             if (typeof dateValue === 'string') {
+        await processInChunks(json, (chunk) => {
+            const item = chunk[0];
+            let expirationDate: Date | null = null;
+            const dateValue = item.expirationDate;
+
+            const hasAllColumns = item.code && item.name && item.category && item.quantity !== undefined && item.batch && dateValue;
+
+            if (hasAllColumns) {
+                if (typeof dateValue === 'string') {
                 expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
                 if (isNaN(expirationDate.getTime())) {
                     expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
                 }
-             } else if (typeof dateValue === 'number') {
+                } else if (typeof dateValue === 'number') {
                 expirationDate = excelSerialDateToJSDate(dateValue);
-             }
+                }
 
-             if (expirationDate && !isNaN(expirationDate.getTime())) {
+                if (expirationDate && !isNaN(expirationDate.getTime())) {
                 processedProducts.push({
                     code: String(item.code),
                     name: String(item.name),
@@ -158,12 +182,12 @@ export default function SettingsPage() {
                     batch: String(item.batch),
                     expirationDate: expirationDate.toISOString(),
                 });
-             } else {
-                skippedRows.push(item.name || item.code || `Linha ${index + 2}`);
-             }
-          } else {
-             skippedRows.push(item.name || item.code || `Linha ${index + 2}`);
-          }
+                } else {
+                skippedRows.push(item.name || item.code || `Linha desconhecida`);
+                }
+            } else {
+                skippedRows.push(item.name || item.code || `Linha desconhecida`);
+            }
         });
 
         if (processedProducts.length > 0) {
@@ -195,10 +219,13 @@ export default function SettingsPage() {
         console.error('Erro ao importar arquivo:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato e as colunas estão corretos.';
         toast({ variant: 'destructive', title: 'Erro de Importação', description: errorMessage });
+      } finally {
+        setIsImporting(false);
       }
     };
     reader.onerror = () => {
        toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo selecionado.' });
+       setIsImporting(false);
     };
     reader.readAsArrayBuffer(file);
     
@@ -214,6 +241,7 @@ export default function SettingsPage() {
         onChange={handleCatalogFileChange}
         className="hidden"
         accept=".xlsx, .xls"
+        disabled={isImporting}
       />
       <input 
         type="file"
@@ -221,6 +249,7 @@ export default function SettingsPage() {
         onChange={handleDatabaseFileChange}
         className="hidden"
         accept=".xlsx, .xls"
+        disabled={isImporting}
       />
 
       <div className="space-y-2">
@@ -261,7 +290,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleImportCatalogClick}>
+              <Button variant="outline" size="sm" onClick={handleImportCatalogClick} disabled={isImporting}>
                 <FileUp className="mr-2 h-4 w-4" />
                 Importar (XLSX)
               </Button>
@@ -271,23 +300,31 @@ export default function SettingsPage() {
               </Button>
             </div>
           </div>
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h3 className="font-medium">Banco de Dados Completo</h3>
-              <p className="text-sm text-muted-foreground">
-                Importe ou exporte todos os produtos em estoque.
-              </p>
+          <div className="flex flex-col p-4 border rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Banco de Dados Completo</h3>
+                <p className="text-sm text-muted-foreground">
+                  Importe ou exporte todos os produtos em estoque.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleImportDatabaseClick} disabled={isImporting}>
+                  <FileUp className="mr-2 h-4 w-4" />
+                  Importar (XLSX)
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportDatabase}>
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Exportar (XLSX)
+                </Button>
+              </div>
             </div>
-             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleImportDatabaseClick}>
-                <FileUp className="mr-2 h-4 w-4" />
-                Importar (XLSX)
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExportDatabase}>
-                <FileDown className="mr-2 h-4 w-4" />
-                Exportar (XLSX)
-              </Button>
-            </div>
+            {isImporting && (
+              <div className="flex items-center gap-4">
+                 <Progress value={importProgress} className="w-[60%]" />
+                 <span className="text-sm font-medium text-muted-foreground">{`Importando... ${importProgress}%`}</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
