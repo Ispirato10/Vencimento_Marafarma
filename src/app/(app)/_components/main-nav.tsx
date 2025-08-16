@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Package, Home, PlusCircle, FileText, Settings } from 'lucide-react';
+import { Package, Home, PlusCircle, FileText, Settings, List, Book } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MainNavProps {
@@ -15,6 +15,8 @@ export function MainNav({ isMobile = false }: MainNavProps) {
   const navLinks = [
     { href: '/', label: 'Painel', icon: Home },
     { href: '/products/new', label: 'Cadastrar Produto', icon: PlusCircle },
+    { href: '/products', label: 'Estoque', icon: List },
+    { href: '/catalog', label: 'Catálogo', icon: Book },
     { href: '/reports', label: 'Relatórios', icon: FileText },
     { href: '/settings', label: 'Configurações', icon: Settings },
   ];
