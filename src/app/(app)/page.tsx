@@ -1,9 +1,11 @@
+
+'use client';
+
+import { useContext } from 'react';
 import { differenceInDays } from 'date-fns';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { AlertTriangle, CalendarClock, CalendarCheck } from 'lucide-react';
 
-import { products } from '@/lib/data';
 import type { Product } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -16,22 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-
-const getExpiringProducts = (days: number, comparison: 'lt' | 'between', days2?: number) => {
-  const today = new Date();
-  return products.filter((product) => {
-    const daysUntilExpiration = differenceInDays(product.expirationDate, today);
-    if (daysUntilExpiration < 0) return false;
-
-    if (comparison === 'lt') {
-      return daysUntilExpiration >= 0 && daysUntilExpiration <= days;
-    }
-    if (comparison === 'between' && days2) {
-      return daysUntilExpiration > days && daysUntilExpiration <= days2;
-    }
-    return false;
-  });
-};
+import { DataContext } from '@/context/data-context';
 
 const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
   if (products.length === 0) {
@@ -59,8 +46,8 @@ const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
             <TableCell className="hidden md:table-cell">{product.category}</TableCell>
             <TableCell className="text-right">{product.quantity}</TableCell>
             <TableCell className="text-right">
-              <Badge variant={differenceInDays(product.expirationDate, new Date()) <= 30 ? "destructive" : "secondary"}>
-                {format(product.expirationDate, 'dd/MM/yyyy')}
+              <Badge variant={differenceInDays(new Date(product.expirationDate), new Date()) <= 30 ? "destructive" : "secondary"}>
+                {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
               </Badge>
             </TableCell>
           </TableRow>
@@ -72,6 +59,25 @@ const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
 
 
 export default function DashboardPage() {
+  const { products } = useContext(DataContext);
+  
+  const getExpiringProducts = (days: number, comparison: 'lt' | 'between', days2?: number) => {
+    const today = new Date();
+    return products.filter((product) => {
+      const expirationDate = new Date(product.expirationDate);
+      const daysUntilExpiration = differenceInDays(expirationDate, today);
+      if (daysUntilExpiration < 0) return false;
+
+      if (comparison === 'lt') {
+        return daysUntilExpiration >= 0 && daysUntilExpiration <= days;
+      }
+      if (comparison === 'between' && days2) {
+        return daysUntilExpiration > days && daysUntilExpiration <= days2;
+      }
+      return false;
+    });
+  };
+
   const expiringIn30Days = getExpiringProducts(30, 'lt');
   const expiringIn60Days = getExpiringProducts(30, 'between', 60);
   const expiringIn90Days = getExpiringProducts(60, 'between', 90);

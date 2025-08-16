@@ -1,14 +1,13 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { format, differenceInDays, startOfDay, endOfDay, addDays } from 'date-fns';
+import { useState, useEffect, useContext } from 'react';
+import { format, differenceInDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { Calendar as CalendarIcon, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-import { products as allProducts } from '@/lib/data';
 import type { Product } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -42,8 +41,10 @@ import {
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { DataContext } from '@/context/data-context';
 
 export default function ReportsPage() {
+  const { products: allProducts } = useContext(DataContext);
   const [period, setPeriod] = useState<string>('30');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -57,24 +58,27 @@ export default function ReportsPage() {
       if (dateRange?.from && dateRange?.to) {
         const from = startOfDay(dateRange.from);
         const to = endOfDay(dateRange.to);
-        results = allProducts.filter(p => p.expirationDate >= from && p.expirationDate <= to);
+        results = allProducts.filter(p => {
+            const expirationDate = new Date(p.expirationDate);
+            return expirationDate >= from && expirationDate <= to
+        });
       } else {
         results = []; // No range selected for custom, show nothing.
       }
     } else {
       const days = parseInt(period);
       results = allProducts.filter(p => {
-        const daysUntilExpiration = differenceInDays(p.expirationDate, today);
+        const daysUntilExpiration = differenceInDays(new Date(p.expirationDate), today);
         return daysUntilExpiration >= 0 && daysUntilExpiration <= days;
       });
     }
     setFilteredProducts(results);
   };
   
-  // biome-ignore lint/correctness/useExhaustiveDependencies: This should only run once on mount to load initial data.
   useEffect(() => {
     handleFilter();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allProducts, period, dateRange]);
   
   const handleExport = () => {
     if (filteredProducts.length === 0) {
@@ -91,7 +95,7 @@ export default function ReportsPage() {
       'Lote': p.batch,
       'Categoria': p.category,
       'Quantidade': p.quantity,
-      'Data de Vencimento': format(p.expirationDate, 'yyyy-MM-dd'),
+      'Data de Vencimento': format(new Date(p.expirationDate), 'yyyy-MM-dd'),
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -114,7 +118,7 @@ export default function ReportsPage() {
           <div className="flex flex-col md:flex-row gap-4 items-end">
             <div className="grid gap-2 flex-1 w-full">
                 <Label htmlFor="period-select">Período</Label>
-                <Select value={period} onValueChange={(value) => { setPeriod(value); setDateRange(undefined); }}>
+                <Select value={period} onValueChange={(value) => { setPeriod(value); if (value !== 'custom') setDateRange(undefined); }}>
                     <SelectTrigger id="period-select">
                     <SelectValue placeholder="Filtrar por período" />
                     </SelectTrigger>
@@ -171,7 +175,6 @@ export default function ReportsPage() {
             )}
             
             <div className="flex items-center gap-2">
-              <Button onClick={handleFilter} disabled={period === 'custom' && (!dateRange?.from || !dateRange?.to)}>Filtrar</Button>
                <Button variant="outline" onClick={handleExport}>
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar (XLS)
@@ -211,7 +214,7 @@ export default function ReportsPage() {
                     <TableCell className="hidden md:table-cell">{product.category}</TableCell>
                     <TableCell className="text-right">{product.quantity}</TableCell>
                     <TableCell className="text-right">
-                        {format(product.expirationDate, 'dd/MM/yyyy')}
+                        {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
                     </TableCell>
                     </TableRow>
                 ))}

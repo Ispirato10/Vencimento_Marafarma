@@ -4,7 +4,7 @@ export type Product = {
   quantity: number;
   category: string;
   batch: string;
-  expirationDate: Date;
+  expirationDate: string; // ISO 8601 date string
 };
 
 export type CatalogItem = {

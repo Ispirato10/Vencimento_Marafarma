@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useRef } from 'react';
+import { useRef, useContext } from 'react';
 import { FileUp, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { format, parseISO } from 'date-fns';
+import { format, parse } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,12 +16,23 @@ import {
 } from '@/components/ui/card';
 import { ThemeToggle } from '@/app/(app)/_components/theme-toggle';
 import { useToast } from '@/hooks/use-toast';
-import { catalog, products } from '@/lib/data';
 import type { CatalogItem, Product } from '@/types';
+import { DataContext } from '@/context/data-context';
+
+// Helper function to convert Excel serial date to JS Date
+// Excel stores dates as number of days since 1900-01-01.
+const excelSerialDateToJSDate = (serial: number) => {
+  if (typeof serial !== 'number') return null;
+  // Excel's epoch starts on 1899-12-30, not 1900-01-01, due to a bug.
+  // We subtract 1 to align with JS's epoch (which is day 0)
+  const excelEpoch = new Date(1899, 11, 30);
+  return new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
+}
 
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { catalog, products, setCatalog, setProducts } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
 
@@ -36,7 +47,7 @@ export default function SettingsPage() {
   const handleExportDatabase = () => {
     const dataToExport = products.map(p => ({
       ...p,
-      expirationDate: format(p.expirationDate, 'yyyy-MM-dd'),
+      expirationDate: format(new Date(p.expirationDate), 'yyyy-MM-dd'),
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -65,17 +76,22 @@ export default function SettingsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<CatalogItem>(worksheet);
         
-        // Em um app real, aqui você atualizaria o estado ou enviaria para um backend
-        console.log('Dados do catálogo importado:', json);
+        // Basic validation
+        if (!json.every(item => 'code' in item && 'name' in item && 'category' in item)) {
+          throw new Error('O arquivo de catálogo parece ter colunas inválidas.');
+        }
+
+        setCatalog(json);
 
         toast({
           title: 'Sucesso!',
-          description: `${json.length} itens do catálogo foram importados. (Simulado)`,
+          description: `${json.length} itens do catálogo foram importados.`,
           variant: 'accent'
         });
       } catch (error) {
         console.error('Erro ao importar arquivo:', error);
-        toast({ variant: 'destructive', title: 'Erro de Importação', description: 'Ocorreu um erro ao ler o arquivo. Verifique se o formato está correto.' });
+        const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato está correto.';
+        toast({ variant: 'destructive', title: 'Erro de Importação', description: errorMessage });
       }
     };
     reader.onerror = () => {
@@ -101,30 +117,54 @@ export default function SettingsPage() {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false, dateNF: 'yyyy-mm-dd' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<Product>(worksheet);
+        const json = XLSX.utils.sheet_to_json<any>(worksheet);
         
-        // Converte as datas que podem vir como string para objetos Date
-        const processedJson = json.map(item => ({
-          ...item,
-          expirationDate: typeof item.expirationDate === 'string' 
-            ? parseISO(item.expirationDate) 
-            : item.expirationDate
-        }));
+        const processedJson: Product[] = json.map((item: any) => {
+          let expirationDate: Date | null = null;
+          const dateValue = item.expirationDate;
 
-        // Em um app real, aqui você atualizaria o estado ou enviaria para um backend
-        console.log('Dados do banco de dados importado:', processedJson);
+          if (typeof dateValue === 'string') {
+            // Try parsing yyyy-mm-dd or dd/mm/yyyy
+             expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
+             if (isNaN(expirationDate.getTime())) {
+                expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
+             }
+          } else if (typeof dateValue === 'number') {
+            expirationDate = excelSerialDateToJSDate(dateValue);
+          }
+          
+          if (!expirationDate || isNaN(expirationDate.getTime())) {
+            throw new Error(`Data de validade inválida para o produto ${item.name || item.code}: ${item.expirationDate}`);
+          }
+
+          if (!item.code || !item.name || !item.category || item.quantity === undefined || !item.batch) {
+             throw new Error(`Linha inválida no arquivo. Verifique as colunas do produto ${item.name || item.code}.`);
+          }
+
+          return {
+            code: String(item.code),
+            name: String(item.name),
+            category: String(item.category),
+            quantity: Number(item.quantity),
+            batch: String(item.batch),
+            expirationDate: expirationDate.toISOString(),
+          };
+        });
+
+        setProducts(processedJson);
 
         toast({
           title: 'Sucesso!',
-          description: `${processedJson.length} produtos foram importados para o estoque. (Simulado)`,
+          description: `${processedJson.length} produtos foram importados para o estoque.`,
           variant: 'accent'
         });
       } catch (error) {
         console.error('Erro ao importar arquivo:', error);
-        toast({ variant: 'destructive', title: 'Erro de Importação', description: 'Ocorreu um erro ao ler o arquivo. Verifique se o formato e as colunas estão corretos.' });
+        const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato e as colunas estão corretos.';
+        toast({ variant: 'destructive', title: 'Erro de Importação', description: errorMessage });
       }
     };
     reader.onerror = () => {

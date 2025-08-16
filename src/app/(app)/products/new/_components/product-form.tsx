@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useContext } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -9,7 +9,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 
-import { catalog } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +31,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { DataContext } from '@/context/data-context';
+import type { Product, CatalogItem } from '@/types';
 
 const productFormSchema = z.object({
   code: z.string().min(1, 'Código é obrigatório.'),
@@ -51,6 +52,7 @@ export function ProductForm() {
   const [isFetching, setIsFetching] = useState(false);
   const [isNewCatalogItem, setIsNewCatalogItem] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
+  const { catalog, addProduct, addCatalogItem } = useContext(DataContext);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -72,8 +74,8 @@ export function ProductForm() {
     if (!code) return;
 
     setIsFetching(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Simulate API call, in a real app this would be a fetch to a server
+    await new Promise((resolve) => setTimeout(resolve, 300));
     const catalogItem = catalog.find((item) => item.code === code);
     setIsFetching(false);
 
@@ -96,10 +98,13 @@ export function ProductForm() {
   };
   
   const onSubmit = (data: ProductFormValues) => {
-    console.log(data);
+    const newProduct: Product = { ...data, expirationDate: data.expirationDate.toISOString() };
+    addProduct(newProduct);
+    
     let toastDescription = `O produto "${data.name}" foi adicionado com sucesso.`;
     if (isNewCatalogItem) {
-        // In a real app, logic to save the new item to the catalog DB would go here.
+        const newCatalogItem: CatalogItem = { code: data.code, name: data.name, category: data.category };
+        addCatalogItem(newCatalogItem);
         toastDescription += ' Este novo item foi adicionado ao seu catálogo.';
     }
 
@@ -155,7 +160,7 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Nome do Produto</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Dipirona 500mg" {...field} />
+                      <Input placeholder="Ex: Dipirona 500mg" {...field} readOnly={!isNewCatalogItem && form.getValues('name') !== ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -168,7 +173,7 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Categoria</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Analgésico" {...field} />
+                      <Input placeholder="Ex: Analgésico" {...field} readOnly={!isNewCatalogItem && form.getValues('category') !== ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -233,7 +238,7 @@ export function ProductForm() {
                           selected={field.value}
                           onSelect={field.onChange}
                           disabled={(date) =>
-                            date < new Date() || date < new Date('1900-01-01')
+                            date < new Date(new Date().setHours(0,0,0,0))
                           }
                           initialFocus
                           locale={ptBR}
