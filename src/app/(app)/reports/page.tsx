@@ -2,11 +2,12 @@
 "use client";
 
 import { useState, useEffect, useContext } from 'react';
-import { format, differenceInDays, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { format, differenceInDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { Calendar as CalendarIcon, FileDown } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 import type { Product } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,13 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DataContext } from '@/context/data-context';
+
+declare module 'jspdf' {
+    interface jsPDF {
+      autoTable: (options: any) => jsPDF;
+    }
+}
+
 
 export default function ReportsPage() {
   const { products: allProducts } = useContext(DataContext);
@@ -89,19 +97,52 @@ export default function ReportsPage() {
       });
       return;
     }
-    const dataToExport = filteredProducts.map(p => ({
-      'Código': p.code,
-      'Nome': p.name,
-      'Lote': p.batch,
-      'Categoria': p.category,
-      'Quantidade': p.quantity,
-      'Data de Vencimento': format(new Date(p.expirationDate), 'yyyy-MM-dd'),
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Relatório de Vencimentos');
-    XLSX.writeFile(workbook, 'relatorio_vencimentos.xlsx');
-    toast({ title: 'Sucesso!', description: 'Relatório exportado.' });
+    
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('Relatório de Vencimentos', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 29);
+
+    const tableColumns = ['Produto', 'Lote', 'Categoria', 'Qtd.', 'Vencimento'];
+    
+    const tableRows = filteredProducts.map(p => [
+      `${p.name}\n${p.code}`,
+      p.batch || 'N/A',
+      p.category || 'N/A',
+      p.quantity,
+      format(new Date(p.expirationDate), 'dd/MM/yyyy')
+    ]);
+
+    doc.autoTable({
+      startY: 35,
+      head: [tableColumns],
+      body: tableRows,
+      theme: 'striped',
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+        overflow: 'linebreak',
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+       columnStyles: {
+        0: { cellWidth: 70 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 15, halign: 'right' },
+        4: { cellWidth: 25, halign: 'center' }
+      }
+    });
+
+    doc.save('relatorio_vencimentos.pdf');
+
+    toast({ title: 'Sucesso!', description: 'Relatório exportado para PDF.' });
   };
 
 
@@ -177,7 +218,7 @@ export default function ReportsPage() {
             <div className="flex items-center gap-2">
                <Button variant="outline" onClick={handleExport}>
                 <FileDown className="mr-2 h-4 w-4" />
-                Exportar (XLS)
+                Exportar (PDF)
               </Button>
             </div>
           </div>
