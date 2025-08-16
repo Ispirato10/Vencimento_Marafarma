@@ -291,7 +291,7 @@ export default function SettingsPage() {
       <input 
         type="file"
         ref={databaseImportRef}
-        onChange={handleDatabaseFilechange}
+        onChange={handleDatabaseFileChange}
         className="hidden"
         accept=".xlsx, .xls"
         disabled={isImporting}
