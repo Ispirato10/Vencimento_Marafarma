@@ -1,12 +1,20 @@
 
 'use client';
 
-import { useContext, useState } from 'react';
-import { Edit, Trash2 } from 'lucide-react';
+import { useContext, useState, useMemo } from 'react';
+import { Edit, Trash2, Search } from 'lucide-react';
 
 import { DataContext } from '@/context/data-context';
 import type { CatalogItem } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -41,6 +49,25 @@ export default function CatalogPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState<'name' | 'code'>('name');
+
+  const filteredCatalog = useMemo(() => {
+    if (!searchQuery) {
+      return catalog;
+    }
+    return catalog.filter((item) => {
+      const query = searchQuery.toLowerCase();
+      if (searchType === 'name') {
+        return item.name.toLowerCase().includes(query);
+      }
+      if (searchType === 'code') {
+        return item.code.toLowerCase() === query;
+      }
+      return true;
+    });
+  }, [catalog, searchQuery, searchType]);
+
 
   const handleEditClick = (item: CatalogItem) => {
     setSelectedItem(item);
@@ -89,10 +116,31 @@ export default function CatalogPage() {
         <CardHeader>
           <CardTitle>Catálogo de Produtos</CardTitle>
           <CardDescription>
-            Visualize e gerencie todos os itens do seu catálogo de produtos.
+            Visualize, gerencie e pesquise todos os itens do seu catálogo de produtos.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex gap-2 mb-4">
+             <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder={`Pesquisar por ${searchType === 'name' ? 'nome...' : 'código exato...'}`}
+                    className="pl-8 sm:w-full"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
+                <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Buscar por" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="name">Nome</SelectItem>
+                    <SelectItem value="code">Código</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -102,7 +150,7 @@ export default function CatalogPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {catalog.map((item, index) => (
+              {filteredCatalog.map((item, index) => (
                 <TableRow key={`${item.code}-${index}`}>
                   <TableCell>
                     <div className="font-medium">{item.name}</div>
@@ -125,8 +173,10 @@ export default function CatalogPage() {
               ))}
             </TableBody>
           </Table>
-           {catalog.length === 0 && (
-                <div className="text-center text-muted-foreground py-8">Nenhum item no catálogo.</div>
+           {filteredCatalog.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                    {searchQuery ? 'Nenhum item encontrado para sua busca.' : 'Nenhum item no catálogo.'}
+                </div>
             )}
         </CardContent>
       </Card>

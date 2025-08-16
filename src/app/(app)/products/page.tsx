@@ -1,14 +1,22 @@
 
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext, useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Edit, Trash2, PlusCircle } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Search } from 'lucide-react';
 import Link from 'next/link';
 
 import { DataContext } from '@/context/data-context';
 import type { Product } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -29,7 +37,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
@@ -45,6 +52,25 @@ export default function ProductsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState<'name' | 'code'>('name');
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery) {
+      return products;
+    }
+    return products.filter((product) => {
+      const query = searchQuery.toLowerCase();
+      if (searchType === 'name') {
+        return product.name.toLowerCase().includes(query);
+      }
+      if (searchType === 'code') {
+        return product.code.toLowerCase() === query;
+      }
+      return true;
+    });
+  }, [products, searchQuery, searchType]);
+
 
   const handleEditClick = (product: Product) => {
     setSelectedProduct(product);
@@ -90,21 +116,44 @@ export default function ProductsPage() {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Estoque de Produtos</CardTitle>
-            <CardDescription>
-              Visualize e gerencie todos os produtos em seu estoque.
-            </CardDescription>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+             <div>
+                <CardTitle>Estoque de Produtos</CardTitle>
+                <CardDescription>
+                  Visualize, gerencie e pesquise todos os produtos em seu estoque.
+                </CardDescription>
+             </div>
+             <Button asChild size="sm">
+                <Link href="/products/new">
+                  <PlusCircle className="mr-2" />
+                  Adicionar Produto
+                </Link>
+             </Button>
           </div>
-           <Button asChild size="sm">
-            <Link href="/products/new">
-              <PlusCircle className="mr-2" />
-              Adicionar Produto
-            </Link>
-          </Button>
         </CardHeader>
         <CardContent>
+          <div className="flex gap-2 mb-4">
+            <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder={`Pesquisar por ${searchType === 'name' ? 'nome...' : 'código exato...'}`}
+                    className="pl-8 sm:w-full"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
+                <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Buscar por" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="name">Nome</SelectItem>
+                    <SelectItem value="code">Código</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -117,7 +166,7 @@ export default function ProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((product, index) => (
+              {filteredProducts.map((product, index) => (
                 <TableRow key={`${product.code}-${product.batch}-${index}`}>
                   <TableCell>
                     <div className="font-medium">{product.name}</div>
@@ -145,8 +194,10 @@ export default function ProductsPage() {
               ))}
             </TableBody>
           </Table>
-           {products.length === 0 && (
-                <div className="text-center text-muted-foreground py-8">Nenhum produto no estoque.</div>
+           {filteredProducts.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                    {searchQuery ? 'Nenhum produto encontrado para sua busca.' : 'Nenhum produto no estoque.'}
+                </div>
             )}
         </CardContent>
       </Card>
