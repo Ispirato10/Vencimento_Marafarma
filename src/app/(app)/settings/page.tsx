@@ -16,6 +16,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { ThemeToggle } from '@/app/(app)/_components/theme-toggle';
 import { useToast } from '@/hooks/use-toast';
@@ -35,7 +37,7 @@ const excelSerialDateToJSDate = (serial: number) => {
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { catalog, products, setCatalog, setProducts, logo, setLogo } = useContext(DataContext);
+  const { catalog, products, setCatalog, setProducts, logo, setLogo, reportAuthor, setReportAuthor } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
   const logoImportRef = useRef<HTMLInputElement>(null);
@@ -364,6 +366,26 @@ export default function SettingsPage() {
         <CardFooter className="border-t px-6 py-4">
             <Button onClick={handleLogoImportClick}>Alterar Logo</Button>
         </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Relatórios</CardTitle>
+           <CardDescription>
+            Personalize as informações exibidas no rodapé dos relatórios em PDF.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2">
+            <Label htmlFor="report-author">Descrição do Rodapé</Label>
+            <Input 
+              id="report-author"
+              value={reportAuthor || ''}
+              onChange={(e) => setReportAuthor(e.target.value)}
+              placeholder="Ex: By Fulano de Tal"
+            />
+          </div>
+        </CardContent>
       </Card>
 
 

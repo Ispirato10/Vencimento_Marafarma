@@ -3,7 +3,7 @@
 
 import { createContext, useState, ReactNode, useEffect } from 'react';
 import type { Product, CatalogItem } from '@/types';
-import { initialProducts, initialCatalog, initialLogo } from '@/lib/data';
+import { initialProducts, initialCatalog, initialLogo, initialReportAuthor } from '@/lib/data';
 
 interface DataContextType {
   products: Product[];
@@ -18,6 +18,8 @@ interface DataContextType {
   deleteCatalogItem: (itemCode: string) => void;
   logo: string | null;
   setLogo: (logoData: string) => void;
+  reportAuthor: string | null;
+  setReportAuthor: (author: string) => void;
   isLoading: boolean;
 }
 
@@ -34,6 +36,8 @@ export const DataContext = createContext<DataContextType>({
   deleteCatalogItem: () => {},
   logo: null,
   setLogo: () => {},
+  reportAuthor: null,
+  setReportAuthor: () => {},
   isLoading: true,
 });
 
@@ -41,6 +45,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [logo, setLogoState] = useState<string | null>(null);
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load initial data from localStorage or fallback to initialData
@@ -49,10 +54,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const storedProducts = localStorage.getItem('products');
       const storedCatalog = localStorage.getItem('catalog');
       const storedLogo = localStorage.getItem('logo');
+      const storedReportAuthor = localStorage.getItem('reportAuthor');
 
       setProducts(storedProducts ? JSON.parse(storedProducts) : initialProducts);
       setCatalog(storedCatalog ? JSON.parse(storedCatalog) : initialCatalog);
       setLogoState(storedLogo || initialLogo);
+      setReportAuthorState(storedReportAuthor || initialReportAuthor);
+
 
     } catch (error) {
       console.error("Failed to load data from localStorage", error);
@@ -60,6 +68,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setProducts(initialProducts);
       setCatalog(initialCatalog);
       setLogoState(initialLogo);
+      setReportAuthorState(initialReportAuthor);
     } finally {
         // Simulate loading time
         setTimeout(() => setIsLoading(false), 1500);
@@ -84,6 +93,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('logo', logo);
     }
   }, [logo, isLoading]);
+
+  useEffect(() => {
+    if (reportAuthor !== null && !isLoading) {
+        localStorage.setItem('reportAuthor', reportAuthor);
+    }
+  }, [reportAuthor, isLoading]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
@@ -128,6 +143,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const setLogo = (logoData: string) => {
     setLogoState(logoData);
   }
+  
+  const setReportAuthor = (author: string) => {
+      setReportAuthorState(author);
+  }
 
 
   return (
@@ -144,6 +163,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         deleteCatalogItem,
         logo,
         setLogo,
+        reportAuthor,
+        setReportAuthor,
         isLoading,
     }}>
       {children}

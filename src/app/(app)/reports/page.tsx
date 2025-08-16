@@ -52,7 +52,7 @@ declare module 'jspdf' {
 
 
 export default function ReportsPage() {
-  const { products: allProducts } = useContext(DataContext);
+  const { products: allProducts, reportAuthor } = useContext(DataContext);
   const [period, setPeriod] = useState<string>('30');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -80,7 +80,7 @@ export default function ReportsPage() {
         return daysUntilExpiration >= 0 && daysUntilExpiration <= days;
       });
     }
-    setFilteredProducts(results);
+    setFilteredProducts(results.sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
   };
   
   useEffect(() => {
@@ -98,13 +98,17 @@ export default function ReportsPage() {
       return;
     }
     
-    const doc = new jsPDF();
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
 
-    doc.setFontSize(18);
-    doc.text('Relatório de Vencimentos', 14, 22);
-    doc.setFontSize(11);
+    doc.setFontSize(16);
+    doc.text('Relatório de Vencimentos', 14, 15);
+    doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 29);
+    doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 21);
 
     const tableColumns = ['Produto', 'Lote', 'Categoria', 'Qtd.', 'Vencimento'];
     
@@ -117,13 +121,13 @@ export default function ReportsPage() {
     ]);
 
     doc.autoTable({
-      startY: 35,
+      startY: 28,
       head: [tableColumns],
       body: tableRows,
-      theme: 'striped',
+      theme: 'grid',
       styles: {
-        fontSize: 8,
-        cellPadding: 2,
+        fontSize: 7.5,
+        cellPadding: 1.5,
         overflow: 'linebreak',
       },
       headStyles: {
@@ -132,12 +136,28 @@ export default function ReportsPage() {
         fontStyle: 'bold',
       },
        columnStyles: {
-        0: { cellWidth: 70 },
+        0: { cellWidth: 80 },
         1: { cellWidth: 25 },
         2: { cellWidth: 30 },
         3: { cellWidth: 15, halign: 'right' },
-        4: { cellWidth: 25, halign: 'center' }
-      }
+        4: { cellWidth: 20, halign: 'center' }
+      },
+      didDrawPage: (data) => {
+        // Footer
+        const pageCount = doc.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        
+        // System Name & Author
+        const footerTextLeft = `Marafarma | ${reportAuthor || ''}`;
+        doc.text(footerTextLeft, data.settings.margin.left, doc.internal.pageSize.height - 8);
+
+        // Page Number
+        const footerTextRight = `Página ${data.pageNumber} de ${pageCount}`;
+        const textWidth = doc.getStringUnitWidth(footerTextRight) * doc.getFontSize() / doc.internal.scaleFactor;
+        doc.text(footerTextRight, doc.internal.pageSize.width - data.settings.margin.right - textWidth, doc.internal.pageSize.height - 8);
+      },
+      margin: { top: 10, right: 12, bottom: 15, left: 12 },
     });
 
     doc.save('relatorio_vencimentos.pdf');
