@@ -48,56 +48,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load initial data from localStorage or fallback to initialData
+  // Load initial data from data files.
   useEffect(() => {
-    try {
-      const storedProducts = localStorage.getItem('products');
-      const storedCatalog = localStorage.getItem('catalog');
-      const storedLogo = localStorage.getItem('logo');
-      const storedReportAuthor = localStorage.getItem('reportAuthor');
-
-      setProducts(storedProducts ? JSON.parse(storedProducts) : initialProducts);
-      setCatalog(storedCatalog ? JSON.parse(storedCatalog) : initialCatalog);
-      setLogoState(storedLogo || initialLogo);
-      setReportAuthorState(storedReportAuthor || initialReportAuthor);
-
-
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
-      // Fallback to initial data if localStorage fails
-      setProducts(initialProducts);
-      setCatalog(initialCatalog);
-      setLogoState(initialLogo);
-      setReportAuthorState(initialReportAuthor);
-    } finally {
-      setIsLoading(false);
-    }
+    setProducts(initialProducts);
+    setCatalog(initialCatalog);
+    setLogoState(initialLogo);
+    setReportAuthorState(initialReportAuthor);
+    setIsLoading(false);
   }, []);
-
-  // Save data to localStorage whenever it changes
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('products', JSON.stringify(products));
-    }
-  }, [products, isLoading]);
-
-  useEffect(() => {
-     if (!isLoading) {
-      localStorage.setItem('catalog', JSON.stringify(catalog));
-    }
-  }, [catalog, isLoading]);
-
-  useEffect(() => {
-    if (logo && !isLoading) {
-      localStorage.setItem('logo', logo);
-    }
-  }, [logo, isLoading]);
-
-  useEffect(() => {
-    if (reportAuthor !== null && !isLoading) {
-        localStorage.setItem('reportAuthor', reportAuthor);
-    }
-  }, [reportAuthor, isLoading]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);

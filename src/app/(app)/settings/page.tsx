@@ -78,7 +78,7 @@ export default function SettingsPage() {
   };
   
   // To update the progress bar without freezing the UI
-  const processInChunks = async <T,>(items: any[], processChunk: (chunk: any[]) => T[], onComplete: (results: T[]) => void) => {
+  const processInChunks = async <T,>(items: any[], processChunk: (chunk: any[]) => T[], onComplete: (results: T[]) => void, onSkipped: (item: any) => void = () => {}) => {
     setIsImporting(true);
     setImportProgress(0);
     
@@ -90,7 +90,11 @@ export default function SettingsPage() {
         if (i < totalItems) {
             const chunk = items.slice(i, i + 1);
             const processedChunk = processChunk(chunk);
-            results.push(...processedChunk);
+            if (processedChunk.length > 0) {
+               results.push(...processedChunk);
+            } else {
+               onSkipped(chunk[0]);
+            }
             const progress = Math.round(((i + 1) / totalItems) * 100);
             setImportProgress(progress);
             i += 1;
@@ -122,6 +126,8 @@ export default function SettingsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
+        let skippedCount = 0;
+
         const processCatalogChunk = (chunk: any[]): CatalogItem[] => {
             const item = chunk[0];
             // Basic validation for each item
@@ -136,14 +142,11 @@ export default function SettingsPage() {
         };
 
         const onCatalogImportComplete = (processedCatalog: CatalogItem[]) => {
-            const validItems = processedCatalog.filter(c => c);
-            const skippedCount = json.length - validItems.length;
-
-            if (validItems.length > 0) {
-                setCatalog(validItems);
+            if (processedCatalog.length > 0) {
+                setCatalog(processedCatalog);
                 toast({
                     title: 'Importação Concluída!',
-                    description: `${validItems.length} itens do catálogo foram importados.`,
+                    description: `${processedCatalog.length} itens do catálogo foram importados.`,
                     variant: 'accent'
                 });
             }
@@ -156,7 +159,7 @@ export default function SettingsPage() {
                 });
             }
 
-            if (validItems.length === 0 && skippedCount > 0) {
+            if (processedCatalog.length === 0 && skippedCount > 0) {
                 toast({
                     variant: 'destructive',
                     title: 'Importação Falhou',
@@ -165,7 +168,12 @@ export default function SettingsPage() {
             }
         };
 
-        await processInChunks(json, processCatalogChunk, onCatalogImportComplete);
+        await processInChunks(
+            json, 
+            processCatalogChunk, 
+            onCatalogImportComplete,
+            () => { skippedCount++; }
+        );
       
       } catch (error) {
         console.error('Erro ao importar arquivo de catálogo:', error);
@@ -203,6 +211,8 @@ export default function SettingsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
         
+        let skippedCount = 0;
+
         const processProductChunk = (chunk: any[]): Product[] => {
             const item = chunk[0];
             let expirationDate: Date | null = null;
@@ -235,14 +245,11 @@ export default function SettingsPage() {
         };
 
         const onDatabaseImportComplete = (processedProducts: Product[]) => {
-            const validProducts = processedProducts.filter(p => p);
-            const skippedCount = json.length - validProducts.length;
-
-            if (validProducts.length > 0) {
-                setProducts(validProducts);
+            if (processedProducts.length > 0) {
+                setProducts(processedProducts);
                 toast({
                   title: 'Importação Concluída!',
-                  description: `${validProducts.length} produtos foram importados para o estoque.`,
+                  description: `${processedProducts.length} produtos foram importados para o estoque.`,
                   variant: 'accent'
                 });
             }
@@ -255,7 +262,7 @@ export default function SettingsPage() {
                 });
             }
 
-            if (validProducts.length === 0 && skippedCount > 0) {
+            if (processedProducts.length === 0 && skippedCount > 0) {
                  toast({
                   variant: 'destructive',
                   title: 'Importação Falhou',
@@ -264,7 +271,12 @@ export default function SettingsPage() {
             }
         };
         
-        await processInChunks(json, processProductChunk, onDatabaseImportComplete);
+        await processInChunks(
+            json, 
+            processProductChunk, 
+            onDatabaseImportComplete,
+            () => { skippedCount++; }
+        );
 
       } catch (error) {
         console.error('Erro ao importar arquivo de banco de dados:', error);
@@ -408,7 +420,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Gerenciamento de Dados</CardTitle>
           <CardDescription>
-            Importe ou exporte os dados do sistema.
+            Importe ou exporte os dados do sistema. Os dados importados não serão salvos.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
