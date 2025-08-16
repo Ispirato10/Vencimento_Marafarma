@@ -4,7 +4,7 @@
 import { useRef } from 'react';
 import { FileUp, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +23,7 @@ import type { CatalogItem, Product } from '@/types';
 export default function SettingsPage() {
   const { toast } = useToast();
   const catalogImportRef = useRef<HTMLInputElement>(null);
+  const databaseImportRef = useRef<HTMLInputElement>(null);
 
   const handleExportCatalog = () => {
     const worksheet = XLSX.utils.json_to_sheet(catalog);
@@ -64,7 +65,7 @@ export default function SettingsPage() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json<CatalogItem>(worksheet);
         
-        // Aqui você processaria os dados `json` (ex: enviar para um backend)
+        // Em um app real, aqui você atualizaria o estado ou enviaria para um backend
         console.log('Dados do catálogo importado:', json);
 
         toast({
@@ -82,7 +83,55 @@ export default function SettingsPage() {
     };
     reader.readAsArrayBuffer(file);
     
-    // Limpa o valor do input para permitir a seleção do mesmo arquivo novamente
+    event.target.value = '';
+  };
+  
+  const handleImportDatabaseClick = () => {
+    databaseImportRef.current?.click();
+  };
+
+  const handleDatabaseFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Nenhum arquivo selecionado.' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json<Product>(worksheet);
+        
+        // Converte as datas que podem vir como string para objetos Date
+        const processedJson = json.map(item => ({
+          ...item,
+          expirationDate: typeof item.expirationDate === 'string' 
+            ? parseISO(item.expirationDate) 
+            : item.expirationDate
+        }));
+
+        // Em um app real, aqui você atualizaria o estado ou enviaria para um backend
+        console.log('Dados do banco de dados importado:', processedJson);
+
+        toast({
+          title: 'Sucesso!',
+          description: `${processedJson.length} produtos foram importados para o estoque. (Simulado)`,
+          variant: 'accent'
+        });
+      } catch (error) {
+        console.error('Erro ao importar arquivo:', error);
+        toast({ variant: 'destructive', title: 'Erro de Importação', description: 'Ocorreu um erro ao ler o arquivo. Verifique se o formato e as colunas estão corretos.' });
+      }
+    };
+    reader.onerror = () => {
+       toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo selecionado.' });
+    };
+    reader.readAsArrayBuffer(file);
+    
     event.target.value = '';
   };
 
@@ -93,6 +142,13 @@ export default function SettingsPage() {
         type="file"
         ref={catalogImportRef}
         onChange={handleCatalogFileChange}
+        className="hidden"
+        accept=".xlsx, .xls"
+      />
+      <input 
+        type="file"
+        ref={databaseImportRef}
+        onChange={handleDatabaseFileChange}
         className="hidden"
         accept=".xlsx, .xls"
       />
@@ -149,13 +205,19 @@ export default function SettingsPage() {
             <div>
               <h3 className="font-medium">Banco de Dados Completo</h3>
               <p className="text-sm text-muted-foreground">
-                Exporte todos os produtos em estoque com lotes e validades.
+                Importe ou exporte todos os produtos em estoque.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportDatabase}>
-              <FileDown className="mr-2 h-4 w-4" />
-              Exportar (XLSX)
-            </Button>
+             <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleImportDatabaseClick}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Importar (XLSX)
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportDatabase}>
+                <FileDown className="mr-2 h-4 w-4" />
+                Exportar (XLSX)
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
