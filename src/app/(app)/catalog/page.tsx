@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useContext, useState, useMemo } from 'react';
+import { useContext, useState, useMemo, useEffect } from 'react';
 import { Edit, Trash2, Search } from 'lucide-react';
 
 import { DataContext } from '@/context/data-context';
@@ -41,6 +41,20 @@ import { useToast } from '@/hooks/use-toast';
 import { EditCatalogItemForm } from './_components/edit-catalog-item-form';
 import { DeleteCatalogItemDialog } from './_components/delete-catalog-item-dialog';
 
+// Custom hook for debouncing
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export default function CatalogPage() {
   const { catalog, updateCatalogItem, deleteCatalogItem } = useContext(DataContext);
   const { toast } = useToast();
@@ -52,12 +66,14 @@ export default function CatalogPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'name' | 'code'>('name');
 
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
   const filteredCatalog = useMemo(() => {
-    if (!searchQuery) {
+    if (!debouncedSearchQuery) {
       return catalog;
     }
     return catalog.filter((item) => {
-      const query = searchQuery.toLowerCase();
+      const query = debouncedSearchQuery.toLowerCase();
       if (searchType === 'name') {
         return item.name.toLowerCase().includes(query);
       }
@@ -66,7 +82,7 @@ export default function CatalogPage() {
       }
       return true;
     });
-  }, [catalog, searchQuery, searchType]);
+  }, [catalog, debouncedSearchQuery, searchType]);
 
 
   const handleEditClick = (item: CatalogItem) => {

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useContext, useState, useMemo } from 'react';
+import { useContext, useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Edit, Trash2, PlusCircle, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -43,6 +43,19 @@ import { useToast } from '@/hooks/use-toast';
 import { EditProductForm } from './_components/edit-product-form';
 import { DeleteProductDialog } from './_components/delete-product-dialog';
 
+// Custom hook for debouncing
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 export default function ProductsPage() {
   const { products, updateProduct, deleteProduct } = useContext(DataContext);
@@ -55,12 +68,14 @@ export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'name' | 'code'>('name');
 
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
   const filteredProducts = useMemo(() => {
-    if (!searchQuery) {
+    if (!debouncedSearchQuery) {
       return products;
     }
     return products.filter((product) => {
-      const query = searchQuery.toLowerCase();
+      const query = debouncedSearchQuery.toLowerCase();
       if (searchType === 'name') {
         return product.name.toLowerCase().includes(query);
       }
@@ -69,7 +84,7 @@ export default function ProductsPage() {
       }
       return true;
     });
-  }, [products, searchQuery, searchType]);
+  }, [products, debouncedSearchQuery, searchType]);
 
 
   const handleEditClick = (product: Product) => {

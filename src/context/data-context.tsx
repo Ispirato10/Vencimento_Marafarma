@@ -70,8 +70,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setLogoState(initialLogo);
       setReportAuthorState(initialReportAuthor);
     } finally {
-        // Simulate loading time
-        setTimeout(() => setIsLoading(false), 1500);
+      setIsLoading(false);
     }
   }, []);
 
