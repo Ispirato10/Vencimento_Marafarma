@@ -5,15 +5,11 @@ import { useRef, useState, useEffect, useContext } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { parse, format } from 'date-fns';
+import { Loader2 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Form,
   FormControl,
@@ -40,8 +36,11 @@ const productFormSchema = z.object({
   quantity: z.coerce.number().min(1, 'Quantidade deve ser maior que 0.'),
   category: z.string(),
   batch: z.string(),
-  expirationDate: z.date({
-    required_error: 'Data de validade é obrigatória.',
+  expirationDate: z.string().refine((val) => {
+    const parsedDate = parse(val, 'dd/MM/yyyy', new Date());
+    return !isNaN(parsedDate.getTime()) && val.length === 10;
+  }, {
+    message: 'Data inválida. Use o formato dd/mm/aaaa.',
   }),
 });
 
@@ -62,6 +61,7 @@ export function ProductForm() {
       quantity: 1,
       category: '',
       batch: '',
+      expirationDate: '',
     },
   });
 
@@ -74,7 +74,6 @@ export function ProductForm() {
     if (!code) return;
 
     setIsFetching(true);
-    // Simulate API call, in a real app this would be a fetch to a server
     await new Promise((resolve) => setTimeout(resolve, 300));
     const catalogItem = catalog.find((item) => item.code === code);
     setIsFetching(false);
@@ -98,7 +97,8 @@ export function ProductForm() {
   };
   
   const onSubmit = (data: ProductFormValues) => {
-    const newProduct: Product = { ...data, expirationDate: data.expirationDate.toISOString() };
+    const parsedDate = parse(data.expirationDate, 'dd/MM/yyyy', new Date());
+    const newProduct: Product = { ...data, expirationDate: parsedDate.toISOString() };
     addProduct(newProduct);
     
     let toastDescription = `O produto "${data.name}" foi adicionado com sucesso.`;
@@ -117,6 +117,18 @@ export function ProductForm() {
     setIsNewCatalogItem(false);
     codeInputRef.current?.focus();
   };
+  
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = `${value.slice(0, 2)}/${value.slice(2)}`;
+    }
+    if (value.length > 5) {
+      value = `${value.slice(0, 5)}/${value.slice(5, 9)}`;
+    }
+    form.setValue('expirationDate', value, { shouldValidate: true });
+  };
+
 
   return (
     <Card>
@@ -160,7 +172,7 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Nome do Produto</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Dipirona 500mg" {...field} readOnly={!isNewCatalogItem && form.getValues('name') !== ''} />
+                      <Input placeholder="Ex: Dipirona 500mg" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -173,7 +185,7 @@ export function ProductForm() {
                   <FormItem>
                     <FormLabel>Categoria</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Analgésico" {...field} readOnly={!isNewCatalogItem && form.getValues('category') !== ''} />
+                      <Input placeholder="Ex: Analgésico" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -211,40 +223,16 @@ export function ProductForm() {
                 control={form.control}
                 name="expirationDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col pt-2">
+                  <FormItem>
                     <FormLabel>Data de Validade</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={'outline'}
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP', { locale: ptBR })
-                            ) : (
-                              <span>Escolha uma data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0,0,0,0))
-                          }
-                          initialFocus
-                          locale={ptBR}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormControl>
+                      <Input 
+                        placeholder="dd/mm/aaaa"
+                        {...field} 
+                        onChange={handleDateChange} 
+                        maxLength={10}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

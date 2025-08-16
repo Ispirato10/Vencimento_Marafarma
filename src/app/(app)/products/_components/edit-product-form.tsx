@@ -4,15 +4,11 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { format, parse, parseISO } from 'date-fns';
+import { Loader2 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Form,
   FormControl,
@@ -29,8 +25,11 @@ const productFormSchema = z.object({
   quantity: z.coerce.number().min(0, 'Quantidade não pode ser negativa.'),
   category: z.string().optional(),
   batch: z.string().optional(),
-  expirationDate: z.date({
-    required_error: 'Data de validade é obrigatória.',
+  expirationDate: z.string().refine((val) => {
+    const parsedDate = parse(val, 'dd/MM/yyyy', new Date());
+    return !isNaN(parsedDate.getTime()) && val.length === 10;
+  }, {
+    message: 'Data inválida. Use o formato dd/mm/aaaa.',
   }),
 });
 
@@ -49,15 +48,28 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       ...product,
-      expirationDate: parseISO(product.expirationDate),
+      expirationDate: format(parseISO(product.expirationDate), 'dd/MM/yyyy'),
       batch: product.batch || '',
       category: product.category || '',
     },
   });
 
   const onSubmit = (data: ProductFormValues) => {
-    onSave({ ...data, expirationDate: data.expirationDate.toISOString() });
+    const parsedDate = parse(data.expirationDate, 'dd/MM/yyyy', new Date());
+    onSave({ ...data, expirationDate: parsedDate.toISOString() });
   };
+  
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = `${value.slice(0, 2)}/${value.slice(2)}`;
+    }
+    if (value.length > 5) {
+      value = `${value.slice(0, 5)}/${value.slice(5, 9)}`;
+    }
+    form.setValue('expirationDate', value, { shouldValidate: true });
+  };
+
 
   return (
     <Form {...form}>
@@ -121,40 +133,16 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
             control={form.control}
             name="expirationDate"
             render={({ field }) => (
-                <FormItem className="flex flex-col pt-2">
+                <FormItem>
                 <FormLabel>Data de Validade</FormLabel>
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <FormControl>
-                        <Button
-                        variant={'outline'}
-                        className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                        )}
-                        >
-                        {field.value ? (
-                            format(field.value, 'PPP', { locale: ptBR })
-                        ) : (
-                            <span>Escolha uma data</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
+                 <FormControl>
+                      <Input 
+                        placeholder="dd/mm/aaaa"
+                        {...field} 
+                        onChange={handleDateChange} 
+                        maxLength={10}
+                      />
                     </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) =>
-                        date < new Date(new Date().setHours(0,0,0,0))
-                        }
-                        initialFocus
-                        locale={ptBR}
-                    />
-                    </PopoverContent>
-                </Popover>
                 <FormMessage />
                 </FormItem>
             )}
