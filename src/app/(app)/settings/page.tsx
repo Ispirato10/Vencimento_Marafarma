@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ThemeToggle } from './_components/theme-toggle';
+import { ThemeToggle } from '../_components/theme-toggle';
 
 export default function SettingsPage() {
   return (
