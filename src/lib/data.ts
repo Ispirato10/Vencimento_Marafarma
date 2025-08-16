@@ -11,7 +11,6 @@ export const catalog: CatalogItem[] = [
 
 export const products: Product[] = [
   {
-    id: '1',
     code: '7896094900118',
     name: 'Dipirona Monoidratada 500mg',
     quantity: 15,
@@ -20,7 +19,6 @@ export const products: Product[] = [
     expirationDate: addDays(new Date(), 25), // Vence em 25 dias
   },
   {
-    id: '2',
     code: '7891058001719',
     name: 'Paracetamol 750mg',
     quantity: 30,
@@ -29,7 +27,6 @@ export const products: Product[] = [
     expirationDate: addDays(new Date(), 50), // Vence em 50 dias
   },
   {
-    id: '3',
     code: '7896004706505',
     name: 'Amoxicilina 500mg',
     quantity: 8,
@@ -38,7 +35,6 @@ export const products: Product[] = [
     expirationDate: addDays(new Date(), 80), // Vence em 80 dias
   },
   {
-    id: '4',
     code: '7897322703870',
     name: 'Loratadina 10mg',
     quantity: 22,
@@ -47,7 +43,6 @@ export const products: Product[] = [
     expirationDate: addDays(new Date(), 15), // Vence em 15 dias
   },
   {
-    id: '5',
     code: '7896112122331',
     name: 'Nimesulida 100mg',
     quantity: 10,
@@ -56,7 +51,6 @@ export const products: Product[] = [
     expirationDate: addMonths(new Date(), 4), // Vence em 4 meses
   },
   {
-    id: '6',
     code: '7891058001719',
     name: 'Paracetamol 750mg',
     quantity: 18,

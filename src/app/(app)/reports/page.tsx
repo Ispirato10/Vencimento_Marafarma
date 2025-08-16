@@ -6,6 +6,7 @@ import { format, differenceInDays, startOfDay, endOfDay, addDays } from 'date-fn
 import { ptBR } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { Calendar as CalendarIcon, FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 import { products as allProducts } from '@/lib/data';
 import type { Product } from '@/types';
@@ -40,11 +41,13 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<string>('30');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const { toast } = useToast();
 
   const handleFilter = () => {
     const today = new Date();
@@ -72,6 +75,30 @@ export default function ReportsPage() {
   useEffect(() => {
     handleFilter();
   }, []);
+  
+  const handleExport = () => {
+    if (filteredProducts.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Nenhum dado para exportar',
+        description: 'Filtre alguns produtos antes de exportar.',
+      });
+      return;
+    }
+    const dataToExport = filteredProducts.map(p => ({
+      'Código': p.code,
+      'Nome': p.name,
+      'Lote': p.batch,
+      'Categoria': p.category,
+      'Quantidade': p.quantity,
+      'Data de Vencimento': format(p.expirationDate, 'yyyy-MM-dd'),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Relatório de Vencimentos');
+    XLSX.writeFile(workbook, 'relatorio_vencimentos.xlsx');
+    toast({ title: 'Sucesso!', description: 'Relatório exportado.' });
+  };
 
 
   return (
@@ -145,7 +172,7 @@ export default function ReportsPage() {
             
             <div className="flex items-center gap-2">
               <Button onClick={handleFilter} disabled={period === 'custom' && (!dateRange?.from || !dateRange?.to)}>Filtrar</Button>
-               <Button variant="outline">
+               <Button variant="outline" onClick={handleExport}>
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar (XLS)
               </Button>
@@ -175,7 +202,7 @@ export default function ReportsPage() {
                 </TableHeader>
                 <TableBody>
                 {filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
+                    <TableRow key={`${product.code}-${product.batch}`}>
                     <TableCell>
                         <div className="font-medium">{product.name}</div>
                         <div className="text-sm text-muted-foreground">{product.code}</div>
