@@ -71,10 +71,10 @@ const setStorageItem = (key: string, value: any) => {
 };
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [catalog, setCatalog] = useState<CatalogItem[]>(initialCatalog);
   const [logo, setLogoState] = useState<string | null>(initialLogo);
-  const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(initialReportAuthor);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load data from localStorage on the client side after initial render
@@ -83,8 +83,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCatalog(getStorageItem('catalog_data', initialCatalog));
     setLogoState(getStorageItem('logo_data', initialLogo));
     setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
-    // Set loading to false after a short delay to ensure client-side hydration is complete
-    setTimeout(() => setIsLoading(false), 50);
+    
+    setIsLoading(false);
   }, []);
 
   // Save data to localStorage whenever it changes
@@ -101,7 +101,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [catalog, isLoading]);
   
   useEffect(() => {
-    if (isLoading || logo === initialLogo) return;
+    if (isLoading) return;
     
     const logoSizeInBytes = logo ? new Blob([logo]).size : 0;
     const MAX_LOGO_SIZE = 500 * 1024; // 500 KB limit
