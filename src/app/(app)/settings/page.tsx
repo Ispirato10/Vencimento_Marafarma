@@ -2,9 +2,9 @@
 "use client";
 
 import { useRef, useContext, useState } from 'react';
-import { FileUp, FileDown } from 'lucide-react';
+import { FileUp, FileDown, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { format, parse } from 'date-fns';
+import { format, parse, isPast } from 'date-fns';
 import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { ThemeToggle } from '@/app/(app)/_components/theme-toggle';
 import { useToast } from '@/hooks/use-toast';
 import type { CatalogItem, Product } from '@/types';
 import { DataContext } from '@/context/data-context';
+import { DeleteExpiredDialog } from './_components/delete-expired-dialog';
 
 // Helper function to convert Excel serial date to JS Date
 // Excel stores dates as number of days since 1900-01-01.
@@ -37,13 +38,17 @@ const excelSerialDateToJSDate = (serial: number) => {
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { catalog, products, setCatalog, setProducts, logo, setLogo, reportAuthor, setReportAuthor } = useContext(DataContext);
+  const { catalog, products, setCatalog, setProducts, logo, setLogo, reportAuthor, setReportAuthor, deleteExpiredProducts } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
   const logoImportRef = useRef<HTMLInputElement>(null);
 
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [isDeleteExpiredDialogOpen, setIsDeleteExpiredDialogOpen] = useState(false);
+  
+  const expiredProductsCount = products.filter(p => isPast(new Date(p.expirationDate))).length;
+
 
   const handleExportCatalog = () => {
     if (catalog.length === 0) {
@@ -326,8 +331,18 @@ export default function SettingsPage() {
     event.target.value = '';
   }
 
+  const handleConfirmDeleteExpired = () => {
+    deleteExpiredProducts();
+    toast({
+      title: 'Produtos Vencidos Excluídos!',
+      description: `${expiredProductsCount} itens foram removidos do estoque.`,
+    });
+    setIsDeleteExpiredDialogOpen(false);
+  };
+
 
   return (
+    <>
     <div className="space-y-6 max-w-2xl mx-auto">
       <input 
         type="file"
@@ -420,7 +435,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Gerenciamento de Dados</CardTitle>
           <CardDescription>
-            Importe ou exporte os dados do sistema. Os dados importados não serão salvos.
+            Importe, exporte ou limpe os dados do sistema.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -464,6 +479,27 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+           <div className="flex flex-col p-4 border rounded-lg space-y-4 bg-destructive/10 border-destructive/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-destructive">Ações Perigosas</h3>
+                <p className="text-sm text-destructive/80">
+                  Exclua permanentemente todos os produtos vencidos do estoque.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => setIsDeleteExpiredDialogOpen(true)} 
+                  disabled={expiredProductsCount === 0 || isImporting}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Excluir Vencidos ({expiredProductsCount})
+                </Button>
+              </div>
+            </div>
+          </div>
           {isImporting && (
             <div className="flex items-center gap-4 pt-4">
                 <Progress value={importProgress} className="w-[60%]" />
@@ -473,5 +509,13 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+    
+    <DeleteExpiredDialog 
+        isOpen={isDeleteExpiredDialogOpen}
+        onClose={() => setIsDeleteExpiredDialogOpen(false)}
+        onConfirm={handleConfirmDeleteExpired}
+        expiredCount={expiredProductsCount}
+    />
+    </>
   );
 }

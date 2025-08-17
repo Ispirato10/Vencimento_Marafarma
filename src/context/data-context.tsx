@@ -4,6 +4,7 @@
 import { createContext, useState, ReactNode, useEffect } from 'react';
 import type { Product, CatalogItem } from '@/types';
 import { initialProducts, initialCatalog, initialLogo, initialReportAuthor } from '@/lib/data';
+import { isPast } from 'date-fns';
 
 interface DataContextType {
   products: Product[];
@@ -11,6 +12,7 @@ interface DataContextType {
   addProduct: (product: Product) => void;
   updateProduct: (productToUpdate: Product) => void;
   deleteProduct: (productCode: string, productBatch: string) => void;
+  deleteExpiredProducts: () => void;
   catalog: CatalogItem[];
   setCatalog: React.Dispatch<React.SetStateAction<CatalogItem[]>>;
   addCatalogItem: (item: CatalogItem) => void;
@@ -29,6 +31,7 @@ export const DataContext = createContext<DataContextType>({
   addProduct: () => {},
   updateProduct: () => {},
   deleteProduct: () => {},
+  deleteExpiredProducts: () => {},
   catalog: [],
   setCatalog: () => {},
   addCatalogItem: () => {},
@@ -79,11 +82,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
+    // We start in loading state. Once we load from storage, we set loading to false.
+    setIsLoading(true);
     setProducts(getStorageItem('products_data', initialProducts));
     setCatalog(getStorageItem('catalog_data', initialCatalog));
     setLogoState(getStorageItem('logo_data', initialLogo));
     setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
     
+    // Finished loading data from storage.
     setIsLoading(false);
   }, []);
 
@@ -135,6 +141,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
+  const deleteExpiredProducts = () => {
+    setProducts((prevProducts) => 
+        prevProducts.filter(p => !isPast(new Date(p.expirationDate)))
+    );
+  };
+
   const addCatalogItem = (item: CatalogItem) => {
     setCatalog((prevCatalog) => {
       if (prevCatalog.some(i => i.code === item.code)) {
@@ -171,6 +183,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         addProduct, 
         updateProduct,
         deleteProduct,
+        deleteExpiredProducts,
         catalog, 
         setCatalog, 
         addCatalogItem,

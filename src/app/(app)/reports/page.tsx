@@ -126,14 +126,15 @@ export default function ReportsPage() {
       body: tableRows,
       theme: 'grid',
       styles: {
-        fontSize: 7.5,
-        cellPadding: 1.5,
+        fontSize: 7, // Smaller font size
+        cellPadding: 1.2, // Tighter cell padding
         overflow: 'linebreak',
       },
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
         fontStyle: 'bold',
+        fontSize: 7.5,
       },
        columnStyles: {
         0: { cellWidth: 80 },
@@ -143,18 +144,26 @@ export default function ReportsPage() {
         4: { cellWidth: 20, halign: 'center' }
       },
       margin: { top: 10, right: 12, bottom: 15, left: 12 },
-    });
-    
-    const pageCount = (doc.internal as any).getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
+      didDrawPage: (data) => {
+        // This function is called after each page is drawn
+        const pageCount = (doc.internal as any).getNumberOfPages();
         doc.setFontSize(8);
         doc.setTextColor(100);
         
         const footerTextLeft = `Controle de Vencimentos Marafarma | ${reportAuthor || ''}`;
         doc.text(footerTextLeft, 12, doc.internal.pageSize.height - 8);
 
-        const footerTextRight = `Página ${i} de ${pageCount}`;
+        // We will add the final page number after the whole document is rendered
+      }
+    });
+    
+    // After the table is fully rendered, we can get the total page count and add it
+    const totalPages = (doc.internal as any).getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        const footerTextRight = `Página ${i} de ${totalPages}`;
         const textWidth = doc.getStringUnitWidth(footerTextRight) * doc.getFontSize() / doc.internal.scaleFactor;
         doc.text(footerTextRight, doc.internal.pageSize.width - 12 - textWidth, doc.internal.pageSize.height - 8);
     }
