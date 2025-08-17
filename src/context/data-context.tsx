@@ -41,6 +41,20 @@ export const DataContext = createContext<DataContextType>({
   isLoading: true,
 });
 
+// Helper function to safely get item from localStorage
+const getStorageItem = <T,>(key: string, fallback: T): T => {
+    if (typeof window === 'undefined') {
+        return fallback;
+    }
+    try {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+    } catch (error) {
+        console.warn(`Error reading localStorage key "${key}":`, error);
+        return fallback;
+    }
+};
+
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -48,14 +62,39 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load initial data from data files.
+  // Load initial data from localStorage or data files.
   useEffect(() => {
-    setProducts(initialProducts);
-    setCatalog(initialCatalog);
-    setLogoState(initialLogo);
-    setReportAuthorState(initialReportAuthor);
+    setProducts(getStorageItem('products_data', initialProducts));
+    setCatalog(getStorageItem('catalog_data', initialCatalog));
+    setLogoState(getStorageItem('logo_data', initialLogo));
+    setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
     setIsLoading(false);
   }, []);
+
+  // Save data to localStorage whenever it changes
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('products_data', JSON.stringify(products));
+    }
+  }, [products, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('catalog_data', JSON.stringify(catalog));
+    }
+  }, [catalog, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading && logo) {
+      localStorage.setItem('logo_data', JSON.stringify(logo));
+    }
+  }, [logo, isLoading]);
+
+  useEffect(() => {
+    if (!isLoading && reportAuthor) {
+      localStorage.setItem('report_author_data', JSON.stringify(reportAuthor));
+    }
+  }, [reportAuthor, isLoading]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
