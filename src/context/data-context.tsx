@@ -48,7 +48,6 @@ const getStorageItem = <T,>(key: string, fallback: T): T => {
     }
     try {
         const item = window.localStorage.getItem(key);
-        // Ensure that if the stored item is `null` (string), it's parsed correctly.
         if (item === null || item === 'null') return fallback;
         return item ? JSON.parse(item) : fallback;
     } catch (error) {
@@ -67,23 +66,24 @@ const setStorageItem = (key: string, value: any) => {
         return true;
     } catch (error) {
         console.error(`Error saving localStorage key "${key}":`, error);
-        // This is where quota exceeded errors are caught.
         return false;
     }
 };
 
-
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize state directly from localStorage to avoid race conditions.
-  const [products, setProducts] = useState<Product[]>(() => getStorageItem('products_data', initialProducts));
-  const [catalog, setCatalog] = useState<CatalogItem[]>(() => getStorageItem('catalog_data', initialCatalog));
-  const [logo, setLogoState] = useState<string | null>(() => getStorageItem('logo_data', initialLogo));
-  const [reportAuthor, setReportAuthorState] = useState<string | null>(() => getStorageItem('report_author_data', initialReportAuthor));
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [catalog, setCatalog] = useState<CatalogItem[]>(initialCatalog);
+  const [logo, setLogoState] = useState<string | null>(initialLogo);
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(initialReportAuthor);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // This effect now only controls the visibility of the splash screen.
+
+  // Load data from localStorage on the client side after initial render
   useEffect(() => {
-    // A small timeout can ensure the UI has settled before removing the splash screen.
+    setProducts(getStorageItem('products_data', initialProducts));
+    setCatalog(getStorageItem('catalog_data', initialCatalog));
+    setLogoState(getStorageItem('logo_data', initialLogo));
+    setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
+    
     const timer = setTimeout(() => setIsLoading(false), 50);
     return () => clearTimeout(timer);
   }, []);
@@ -98,9 +98,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
        console.warn('Could not save catalog to localStorage. It might be too large.');
     }
   }, [catalog]);
-
+  
   useEffect(() => {
-    // Avoid saving the initial null value back to storage.
     if (logo === null && !localStorage.getItem('logo_data')) return;
     
     const logoSizeInBytes = logo ? new Blob([logo]).size : 0;
@@ -137,7 +136,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addCatalogItem = (item: CatalogItem) => {
     setCatalog((prevCatalog) => {
-      // Prevent adding duplicates
       if (prevCatalog.some(i => i.code === item.code)) {
         return prevCatalog;
       }
@@ -164,7 +162,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const setReportAuthor = (author: string) => {
       setReportAuthorState(author);
   }
-
 
   return (
     <DataContext.Provider value={{ 
