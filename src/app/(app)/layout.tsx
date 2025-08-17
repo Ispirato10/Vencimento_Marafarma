@@ -2,7 +2,7 @@
 'use client';
 
 import { useContext } from 'react';
-import { Menu, Package } from 'lucide-react';
+import { Menu, Package, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
