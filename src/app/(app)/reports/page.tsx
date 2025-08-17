@@ -47,7 +47,6 @@ import { DataContext } from '@/context/data-context';
 declare module 'jspdf' {
     interface jsPDF {
       autoTable: (options: any) => jsPDF;
-      lastAutoTable: { finalY: number };
     }
 }
 
@@ -143,23 +142,23 @@ export default function ReportsPage() {
         3: { cellWidth: 15, halign: 'right' },
         4: { cellWidth: 20, halign: 'center' }
       },
-      didDrawPage: (data) => {
-        // Footer
-        const pageCount = (doc.internal as any).getNumberOfPages();
+      margin: { top: 10, right: 12, bottom: 15, left: 12 },
+    });
+    
+    const pageCount = (doc.internal as any).getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(100);
         
-        // System Name & Author
         const footerTextLeft = `Controle de Vencimentos Marafarma | ${reportAuthor || ''}`;
-        doc.text(footerTextLeft, data.settings.margin.left, doc.internal.pageSize.height - 8);
+        doc.text(footerTextLeft, 12, doc.internal.pageSize.height - 8);
 
-        // Page Number
-        const footerTextRight = `Página ${data.pageNumber} de ${pageCount}`;
+        const footerTextRight = `Página ${i} de ${pageCount}`;
         const textWidth = doc.getStringUnitWidth(footerTextRight) * doc.getFontSize() / doc.internal.scaleFactor;
-        doc.text(footerTextRight, doc.internal.pageSize.width - data.settings.margin.right - textWidth, doc.internal.pageSize.height - 8);
-      },
-      margin: { top: 10, right: 12, bottom: 15, left: 12 },
-    });
+        doc.text(footerTextRight, doc.internal.pageSize.width - 12 - textWidth, doc.internal.pageSize.height - 8);
+    }
+
 
     doc.save('relatorio_vencimentos.pdf');
 
@@ -186,7 +185,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="30">Próximos 30 dias</SelectItem>
-                      <SelectItem value="60">Próximos 60 dias</SelectItem>
+                      <SelectItem value="60">Próóximos 60 dias</SelectItem>
                       <SelectItem value="90">Próximos 90 dias</SelectItem>
                       <SelectItem value="custom">Período customizado</SelectItem>
                     </SelectContent>
