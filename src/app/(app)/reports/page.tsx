@@ -127,25 +127,25 @@ export default function ReportsPage() {
       body: tableRows,
       theme: 'grid',
        styles: {
-        fontSize: 6,
-        cellPadding: 1,
+        fontSize: 8,
+        cellPadding: 1.5,
         overflow: 'linebreak',
       },
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 6.5,
+        fontSize: 8,
       },
        columnStyles: {
-        0: { cellWidth: 70 },
+        0: { cellWidth: 'auto' },
         1: { cellWidth: 30 },
         2: { cellWidth: 20 },
         3: { cellWidth: 30 },
         4: { cellWidth: 10, halign: 'right' },
-        5: { cellWidth: 18, halign: 'center' }
+        5: { cellWidth: 22, halign: 'center' }
       },
-      margin: { top: 10, bottom: 15 },
+      margin: { top: 28, bottom: 15, horizontal: 10 },
       didDrawPage: (data) => {
         const pageCount = (doc.internal as any).getNumberOfPages();
         doc.setFontSize(8);
@@ -163,7 +163,8 @@ export default function ReportsPage() {
         doc.setTextColor(100);
         const footerTextRight = `Página ${i} de ${totalPages}`;
         const textWidth = doc.getStringUnitWidth(footerTextRight) * doc.getFontSize() / doc.internal.scaleFactor;
-        doc.text(footerTextRight, doc.internal.pageSize.width - doc.autoTable.getPrevious().margin('right') - textWidth, doc.internal.pageSize.height - 8);
+        const previousTable = (doc as any).autoTable.previous;
+        doc.text(footerTextRight, doc.internal.pageSize.width - previousTable.settings.margin.right - textWidth, doc.internal.pageSize.height - 8);
     }
 
 
