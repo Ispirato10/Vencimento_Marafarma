@@ -58,14 +58,15 @@ const getStorageItem = <T,>(key: string, fallback: T): T => {
 // Helper function to safely set item in localStorage
 const setStorageItem = (key: string, value: any) => {
     if (typeof window === 'undefined') {
-        return;
+        return false;
     }
     try {
         window.localStorage.setItem(key, JSON.stringify(value));
+        return true;
     } catch (error) {
         console.error(`Error saving localStorage key "${key}":`, error);
         // This is where quota exceeded errors are caught.
-        // We could add a toast notification here if needed.
+        return false;
     }
 };
 
@@ -83,6 +84,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCatalog(getStorageItem('catalog_data', initialCatalog));
     setLogoState(getStorageItem('logo_data', initialLogo));
     setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
+    // Only set loading to false after all states are initialized.
     setIsLoading(false);
   }, []);
 
@@ -100,7 +102,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [catalog, isLoading]);
 
   useEffect(() => {
-    if (!isLoading && logo) {
+    if (!isLoading && logo !== null) { // Check for null to avoid saving it on initial load before it's set
        // Check logo size before saving to prevent quota errors
       const logoSizeInBytes = new Blob([logo]).size;
       const MAX_LOGO_SIZE = 500 * 1024; // 500 KB limit
@@ -114,7 +116,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [logo, isLoading]);
 
   useEffect(() => {
-    if (!isLoading && reportAuthor) {
+    if (!isLoading && reportAuthor !== null) { // Check for null
       setStorageItem('report_author_data', reportAuthor);
     }
   }, [reportAuthor, isLoading]);
