@@ -74,20 +74,25 @@ const setStorageItem = (key: string, value: any) => {
 };
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [catalog, setCatalog] = useState<CatalogItem[]>(initialCatalog);
   const [logo, setLogoState] = useState<string | null>(initialLogo);
-  const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(initialReportAuthor);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
-    // We start in loading state. Once we load from storage, we set loading to false.
-    setIsLoading(true);
-    setProducts(getStorageItem('products_data', initialProducts));
-    setCatalog(getStorageItem('catalog_data', initialCatalog));
-    setLogoState(getStorageItem('logo_data', initialLogo));
-    setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
+    // We start in loading state. We load everything from storage first,
+    // then update the state and set loading to false. This prevents hydration issues.
+    const storedProducts = getStorageItem('products_data', initialProducts);
+    const storedCatalog = getStorageItem('catalog_data', initialCatalog);
+    const storedLogo = getStorageItem('logo_data', initialLogo);
+    const storedReportAuthor = getStorageItem('report_author_data', initialReportAuthor);
+    
+    setProducts(storedProducts);
+    setCatalog(storedCatalog);
+    setLogoState(storedLogo);
+    setReportAuthorState(storedReportAuthor);
     
     // Finished loading data from storage.
     setIsLoading(false);
