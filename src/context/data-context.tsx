@@ -5,6 +5,8 @@ import { createContext, useState, ReactNode, useEffect } from 'react';
 import type { Product, CatalogItem } from '@/types';
 import { initialProducts, initialCatalog, initialReportAuthor } from '@/lib/data';
 import { isPast } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
+
 
 interface DataContextType {
   products: Product[];
@@ -61,8 +63,18 @@ const setStorageItem = (key: string, value: any) => {
     try {
         window.localStorage.setItem(key, JSON.stringify(value));
         return true;
-    } catch (error) {
-        console.error(`Error saving localStorage key "${key}":`, error);
+    } catch (error: any) {
+        // Check if the error is a quota exceeded error
+        if (error.name === 'QuotaExceededError' || (error.code && (error.code === 22 || error.code === 1014))) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro de Armazenamento',
+                description: `Não foi possível salvar os dados de "${key}". O arquivo é muito grande para o armazenamento local do navegador. As alterações não serão mantidas se a página for atualizada.`,
+                duration: 10000,
+            });
+        } else {
+            console.error(`Error saving localStorage key "${key}":`, error);
+        }
         return false;
     }
 };
@@ -93,9 +105,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!isClient) return;
-    if (!setStorageItem('catalog_data', catalog)) {
-       console.warn('Could not save catalog to localStorage. It might be too large.');
-    }
+    setStorageItem('catalog_data', catalog);
   }, [catalog, isClient]);
 
   useEffect(() => {
