@@ -3,7 +3,7 @@
 
 import { createContext, useState, ReactNode, useEffect } from 'react';
 import type { Product, CatalogItem } from '@/types';
-import { initialProducts, initialCatalog, initialLogo, initialReportAuthor } from '@/lib/data';
+import { initialProducts, initialCatalog, initialReportAuthor } from '@/lib/data';
 import { isPast } from 'date-fns';
 
 interface DataContextType {
@@ -82,17 +82,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
-    const storedProducts = getStorageItem('products_data', initialProducts);
-    const storedCatalog = getStorageItem('catalog_data', initialCatalog);
-    const storedLogo = getStorageItem('logo_data', initialLogo);
-    const storedReportAuthor = getStorageItem('report_author_data', initialReportAuthor);
-    
-    setProducts(storedProducts);
-    setCatalog(storedCatalog);
-    setLogoState(storedLogo);
-    setReportAuthorState(storedReportAuthor);
-    
-    setIsLoading(false);
+    // We wrap this in a timeout to ensure it runs after the initial render and hydration.
+    const timer = setTimeout(() => {
+        const storedProducts = getStorageItem('products_data', initialProducts);
+        const storedCatalog = getStorageItem('catalog_data', initialCatalog);
+        const storedLogo = getStorageItem('logo_data', null); // Default to null, no test image
+        const storedReportAuthor = getStorageItem('report_author_data', initialReportAuthor);
+        
+        setProducts(storedProducts);
+        setCatalog(storedCatalog);
+        setLogoState(storedLogo);
+        setReportAuthorState(storedReportAuthor);
+        
+        setIsLoading(false);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Save data to localStorage whenever it changes
