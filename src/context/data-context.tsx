@@ -18,11 +18,8 @@ interface DataContextType {
   addCatalogItem: (item: CatalogItem) => void;
   updateCatalogItem: (itemToUpdate: CatalogItem) => void;
   deleteCatalogItem: (itemCode: string) => void;
-  logo: string | null;
-  setLogo: (logoData: string) => void;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
-  isLoading: boolean;
 }
 
 export const DataContext = createContext<DataContextType>({
@@ -37,11 +34,8 @@ export const DataContext = createContext<DataContextType>({
   addCatalogItem: () => {},
   updateCatalogItem: () => {},
   deleteCatalogItem: () => {},
-  logo: null,
-  setLogo: () => {},
   reportAuthor: null,
   setReportAuthor: () => {},
-  isLoading: true,
 });
 
 // Helper function to safely get item from localStorage
@@ -76,47 +70,38 @@ const setStorageItem = (key: string, value: any) => {
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [logo, setLogoState] = useState<string | null>(null);
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
     const storedProducts = getStorageItem('products_data', initialProducts);
     const storedCatalog = getStorageItem('catalog_data', initialCatalog);
-    const storedLogo = getStorageItem('logo_data', null);
     const storedReportAuthor = getStorageItem('report_author_data', initialReportAuthor);
     
     setProducts(storedProducts);
     setCatalog(storedCatalog);
-    setLogoState(storedLogo);
     setReportAuthorState(storedReportAuthor);
-    
-    setIsLoading(false);
+    setIsClient(true);
   }, []);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (isLoading) return;
+    if (!isClient) return;
     setStorageItem('products_data', products);
-  }, [products, isLoading]);
+  }, [products, isClient]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!isClient) return;
     if (!setStorageItem('catalog_data', catalog)) {
        console.warn('Could not save catalog to localStorage. It might be too large.');
     }
-  }, [catalog, isLoading]);
-  
-  useEffect(() => {
-    if (isLoading) return;
-    setStorageItem('logo_data', logo);
-  }, [logo, isLoading]);
+  }, [catalog, isClient]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!isClient) return;
     setStorageItem('report_author_data', reportAuthor);
-  }, [reportAuthor, isLoading]);
+  }, [reportAuthor, isClient]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
@@ -162,10 +147,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const deleteCatalogItem = (itemCode: string) => {
     setCatalog((prevCatalog) => prevCatalog.filter((item) => item.code !== itemCode));
   };
-
-  const setLogo = (logoData: string) => {
-    setLogoState(logoData);
-  }
   
   const setReportAuthor = (author: string) => {
       setReportAuthorState(author);
@@ -184,11 +165,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         addCatalogItem,
         updateCatalogItem,
         deleteCatalogItem,
-        logo,
-        setLogo,
         reportAuthor,
         setReportAuthor,
-        isLoading,
     }}>
       {children}
     </DataContext.Provider>

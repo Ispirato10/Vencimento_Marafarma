@@ -5,7 +5,6 @@ import { useRef, useContext, useState } from 'react';
 import { FileUp, FileDown, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parse, isPast } from 'date-fns';
-import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -38,10 +37,9 @@ const excelSerialDateToJSDate = (serial: number) => {
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { catalog, products, setCatalog, setProducts, logo, setLogo, reportAuthor, setReportAuthor, deleteExpiredProducts } = useContext(DataContext);
+  const { catalog, products, setCatalog, setProducts, reportAuthor, setReportAuthor, deleteExpiredProducts } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
-  const logoImportRef = useRef<HTMLInputElement>(null);
 
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
@@ -299,38 +297,6 @@ export default function SettingsPage() {
     event.target.value = '';
   };
   
-  const handleLogoImportClick = () => {
-    logoImportRef.current?.click();
-  }
-
-  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Nenhum arquivo selecionado.' });
-      return;
-    }
-
-    if (file.size > 1 * 1024 * 1024) { // 1 MB limit
-        toast({ variant: 'destructive', title: 'Arquivo muito grande', description: 'Por favor, selecione um arquivo de imagem menor que 1MB.' });
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const result = e.target?.result;
-        if (typeof result === 'string') {
-            setLogo(result);
-            toast({ title: 'Sucesso!', description: 'Logo da empresa atualizado.', variant: 'accent' });
-        }
-    };
-    reader.onerror = () => {
-       toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo de imagem.' });
-    };
-    reader.readAsDataURL(file);
-
-    event.target.value = '';
-  }
-
   const handleConfirmDeleteExpired = () => {
     deleteExpiredProducts();
     toast({
@@ -360,40 +326,13 @@ export default function SettingsPage() {
         accept=".xlsx, .xls"
         disabled={isImporting}
       />
-      <input
-        type="file"
-        ref={logoImportRef}
-        onChange={handleLogoFileChange}
-        className="hidden"
-        accept="image/png, image/jpeg, image/gif, image/svg+xml"
-      />
-
-
+      
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
           Gerencie as configurações de aparência e dados do aplicativo.
         </p>
       </div>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Logo da Empresa</CardTitle>
-          <CardDescription>
-            Faça o upload do logo que será exibido na tela inicial.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {logo && (
-                <div className="flex justify-center items-center p-4 border rounded-md mb-4 bg-muted/40">
-                    <Image src={logo} alt="Logo da Empresa" width={150} height={150} className="max-h-24 w-auto" />
-                </div>
-            )}
-        </CardContent>
-        <CardFooter className="border-t px-6 py-4">
-            <Button onClick={handleLogoImportClick}>Alterar Logo</Button>
-        </CardFooter>
-      </Card>
 
       <Card>
         <CardHeader>
