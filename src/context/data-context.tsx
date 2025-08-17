@@ -22,6 +22,9 @@ interface DataContextType {
   deleteCatalogItem: (itemCode: string) => void;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
+  logo: string | null;
+  setLogo: (logo: string | null) => void;
+  isLoading: boolean;
 }
 
 export const DataContext = createContext<DataContextType>({
@@ -38,6 +41,9 @@ export const DataContext = createContext<DataContextType>({
   deleteCatalogItem: () => {},
   reportAuthor: null,
   setReportAuthor: () => {},
+  logo: null,
+  setLogo: () => {},
+  isLoading: true,
 });
 
 // Helper function to safely get item from localStorage
@@ -83,35 +89,50 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [logo, setLogo] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
     const storedProducts = getStorageItem('products_data', initialProducts);
     const storedCatalog = getStorageItem('catalog_data', initialCatalog);
     const storedReportAuthor = getStorageItem('report_author_data', initialReportAuthor);
+    const storedLogo = getStorageItem('company_logo_data', null);
     
     setProducts(storedProducts);
     setCatalog(storedCatalog);
     setReportAuthorState(storedReportAuthor);
-    setIsClient(true);
+    if(storedLogo) {
+      setLogo(storedLogo);
+    }
+    
+    // Simulate loading time and then set loading to false
+    setTimeout(() => {
+        setIsLoading(false);
+    }, 1500);
+
   }, []);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (!isClient) return;
+    if (isLoading) return;
     setStorageItem('products_data', products);
-  }, [products, isClient]);
+  }, [products, isLoading]);
 
   useEffect(() => {
-    if (!isClient) return;
+    if (isLoading) return;
     setStorageItem('catalog_data', catalog);
-  }, [catalog, isClient]);
+  }, [catalog, isLoading]);
 
   useEffect(() => {
-    if (!isClient) return;
+    if (isLoading) return;
     setStorageItem('report_author_data', reportAuthor);
-  }, [reportAuthor, isClient]);
+  }, [reportAuthor, isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    setStorageItem('company_logo_data', logo);
+  }, [logo, isLoading]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
@@ -177,6 +198,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         deleteCatalogItem,
         reportAuthor,
         setReportAuthor,
+        logo,
+        setLogo,
+        isLoading,
     }}>
       {children}
     </DataContext.Provider>

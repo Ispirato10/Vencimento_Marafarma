@@ -2,9 +2,10 @@
 "use client";
 
 import { useRef, useContext, useState } from 'react';
-import { FileUp, FileDown, Trash2 } from 'lucide-react';
+import { FileUp, FileDown, Trash2, Upload, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parse, isPast } from 'date-fns';
+import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -37,9 +38,10 @@ const excelSerialDateToJSDate = (serial: number) => {
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { catalog, products, setCatalog, setProducts, reportAuthor, setReportAuthor, deleteExpiredProducts } = useContext(DataContext);
+  const { catalog, products, setCatalog, setProducts, reportAuthor, setReportAuthor, deleteExpiredProducts, logo, setLogo } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
+  const logoImportRef = useRef<HTMLInputElement>(null);
 
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
@@ -47,6 +49,26 @@ export default function SettingsPage() {
   
   const expiredProductsCount = products.filter(p => isPast(new Date(p.expirationDate))).length;
 
+  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 1024 * 1024) { // 1MB limit
+        toast({ variant: 'destructive', title: 'Erro', description: 'O arquivo de imagem é muito grande. O limite é de 1MB.' });
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const result = e.target?.result;
+        if (typeof result === 'string') {
+            setLogo(result);
+            toast({ title: 'Sucesso!', description: 'Logo da empresa atualizado.' });
+        }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = ''; // Reset input
+  };
 
   const handleExportCatalog = () => {
     if (catalog.length === 0) {
@@ -326,6 +348,14 @@ export default function SettingsPage() {
         accept=".xlsx, .xls"
         disabled={isImporting}
       />
+       <input
+        type="file"
+        ref={logoImportRef}
+        onChange={handleLogoFileChange}
+        className="hidden"
+        accept="image/png"
+        disabled={isImporting}
+      />
       
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
@@ -333,6 +363,38 @@ export default function SettingsPage() {
           Gerencie as configurações de aparência e dados do aplicativo.
         </p>
       </div>
+
+       <Card>
+        <CardHeader>
+          <CardTitle>Logo da Empresa</CardTitle>
+          <CardDescription>
+            Faça o upload do logo que será exibido na tela de carregamento (PNG, máx 1MB).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="w-24 h-24 rounded-md border border-dashed flex items-center justify-center bg-muted/40">
+              {logo ? (
+                 <Image src={logo} alt="Logo" width={80} height={80} className="object-contain" />
+              ) : (
+                <span className="text-xs text-muted-foreground text-center">Sem logo</span>
+              )}
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => logoImportRef.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Alterar Logo
+                </Button>
+                {logo && (
+                    <Button variant="ghost" size="sm" onClick={() => setLogo(null)}>
+                        <X className="mr-2 h-4 w-4" />
+                        Remover
+                    </Button>
+                )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
