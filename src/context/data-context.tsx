@@ -48,6 +48,8 @@ const getStorageItem = <T,>(key: string, fallback: T): T => {
     }
     try {
         const item = window.localStorage.getItem(key);
+        // Ensure that if the stored item is `null` (string), it's parsed correctly.
+        if (item === null || item === 'null') return fallback;
         return item ? JSON.parse(item) : fallback;
     } catch (error) {
         console.warn(`Error reading localStorage key "${key}":`, error);
@@ -72,60 +74,48 @@ const setStorageItem = (key: string, value: any) => {
 
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [logo, setLogoState] = useState<string | null>(null);
-  const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
+  // Initialize state directly from localStorage to avoid race conditions.
+  const [products, setProducts] = useState<Product[]>(() => getStorageItem('products_data', initialProducts));
+  const [catalog, setCatalog] = useState<CatalogItem[]>(() => getStorageItem('catalog_data', initialCatalog));
+  const [logo, setLogoState] = useState<string | null>(() => getStorageItem('logo_data', initialLogo));
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(() => getStorageItem('report_author_data', initialReportAuthor));
   const [isLoading, setIsLoading] = useState(true);
-
-  // Load initial data from localStorage or data files.
+  
+  // This effect now only controls the visibility of the splash screen.
   useEffect(() => {
-    setIsLoading(true);
-    // Directly set the state from localStorage or fallbacks.
-    // The logo will be available immediately for the splash screen.
-    setProducts(getStorageItem('products_data', initialProducts));
-    setCatalog(getStorageItem('catalog_data', initialCatalog));
-    setLogoState(getStorageItem('logo_data', initialLogo));
-    setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
-    // Set loading to false after all states have been initialized.
-    setIsLoading(false);
+    // A small timeout can ensure the UI has settled before removing the splash screen.
+    const timer = setTimeout(() => setIsLoading(false), 50);
+    return () => clearTimeout(timer);
   }, []);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (!isLoading) {
-      setStorageItem('products_data', products);
-    }
-  }, [products, isLoading]);
+    setStorageItem('products_data', products);
+  }, [products]);
 
   useEffect(() => {
-    if (!isLoading) {
-      // Catch potential quota errors when saving large catalogs.
-      if (!setStorageItem('catalog_data', catalog)) {
-         console.warn('Could not save catalog to localStorage. It might be too large.');
-      }
+    if (!setStorageItem('catalog_data', catalog)) {
+       console.warn('Could not save catalog to localStorage. It might be too large.');
     }
-  }, [catalog, isLoading]);
+  }, [catalog]);
 
   useEffect(() => {
-    if (!isLoading && logo !== null) { // Check for null to avoid saving it on initial load before it's set
-       // Check logo size before saving to prevent quota errors
-      const logoSizeInBytes = new Blob([logo]).size;
-      const MAX_LOGO_SIZE = 500 * 1024; // 500 KB limit
-      if (logoSizeInBytes < MAX_LOGO_SIZE) {
-        setStorageItem('logo_data', logo);
-      } else {
-        console.warn('Logo is too large to be saved in localStorage.');
-        // Optionally, inform the user with a toast message.
-      }
+    // Avoid saving the initial null value back to storage.
+    if (logo === null && !localStorage.getItem('logo_data')) return;
+    
+    const logoSizeInBytes = logo ? new Blob([logo]).size : 0;
+    const MAX_LOGO_SIZE = 500 * 1024; // 500 KB limit
+    if (logoSizeInBytes < MAX_LOGO_SIZE) {
+      setStorageItem('logo_data', logo);
+    } else {
+      console.warn('Logo is too large to be saved in localStorage.');
     }
-  }, [logo, isLoading]);
+  }, [logo]);
 
   useEffect(() => {
-    if (!isLoading && reportAuthor !== null) { // Check for null
-      setStorageItem('report_author_data', reportAuthor);
-    }
-  }, [reportAuthor, isLoading]);
+    if (reportAuthor === null && !localStorage.getItem('report_author_data')) return;
+    setStorageItem('report_author_data', reportAuthor);
+  }, [reportAuthor]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
