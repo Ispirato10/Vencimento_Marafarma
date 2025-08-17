@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useContext } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { Menu, Package } from 'lucide-react';
 import Link from 'next/link';
 
@@ -63,8 +63,13 @@ function AppLayoutContent({
 
 function AppLayoutWithData({ children }: { children: React.ReactNode }) {
   const { isLoading, logo } = useContext(DataContext);
+  const [isClient, setIsClient] = useState(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient || isLoading) {
     return <SplashScreen logo={logo} />;
   }
 
