@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useContext, useState, useEffect } from 'react';
+import { useContext } from 'react';
 import { Menu, Package } from 'lucide-react';
 import Link from 'next/link';
 
@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { MainNav } from './_components/main-nav';
 import { DataProvider, DataContext } from '@/context/data-context';
 import { SplashScreen } from './_components/splash-screen';
+import { ClientOnly } from '@/components/client-only';
 
 function AppLayoutContent({
   children,
@@ -63,13 +64,8 @@ function AppLayoutContent({
 
 function AppLayoutWithData({ children }: { children: React.ReactNode }) {
   const { isLoading, logo } = useContext(DataContext);
-  const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient || isLoading) {
+  if (isLoading) {
     return <SplashScreen logo={logo} />;
   }
 
@@ -83,10 +79,12 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <DataProvider>
-      <AppLayoutWithData>
-        {children}
-      </AppLayoutWithData>
-    </DataProvider>
+    <ClientOnly>
+      <DataProvider>
+        <AppLayoutWithData>
+          {children}
+        </AppLayoutWithData>
+      </DataProvider>
+    </ClientOnly>
   );
 }
