@@ -9,19 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { MainNav } from './_components/main-nav';
 import { DataProvider, DataContext } from '@/context/data-context';
-import { SplashScreen } from './_components/splash-screen';
 import { ClientOnly } from '@/components/client-only';
+import { Toaster } from '@/components/ui/toaster';
 
 function AppLayoutContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
-    const { isLoading, logo } = useContext(DataContext);
-
-    if (isLoading) {
-        return <SplashScreen logo={logo} />;
-    }
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
@@ -63,6 +58,9 @@ function AppLayoutContent({
           {children}
         </main>
       </div>
+       <ClientOnly>
+          <Toaster />
+       </ClientOnly>
     </div>
   );
 }
@@ -74,12 +72,10 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClientOnly>
-      <DataProvider>
-        <AppLayoutContent>
-          {children}
-        </AppLayoutContent>
-      </DataProvider>
-    </ClientOnly>
+    <DataProvider>
+      <AppLayoutContent>
+        {children}
+      </AppLayoutContent>
+    </DataProvider>
   );
 }

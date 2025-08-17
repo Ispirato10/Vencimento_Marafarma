@@ -28,7 +28,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <Toaster />
+          {/* Toaster será movido para o layout do app para renderização no cliente */}
         </ThemeProvider>
       </body>
     </html>
