@@ -71,10 +71,10 @@ const setStorageItem = (key: string, value: any) => {
 };
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [catalog, setCatalog] = useState<CatalogItem[]>(initialCatalog);
-  const [logo, setLogoState] = useState<string | null>(initialLogo);
-  const [reportAuthor, setReportAuthorState] = useState<string | null>(initialReportAuthor);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [logo, setLogoState] = useState<string | null>(null);
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load data from localStorage on the client side after initial render
@@ -83,24 +83,24 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCatalog(getStorageItem('catalog_data', initialCatalog));
     setLogoState(getStorageItem('logo_data', initialLogo));
     setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
-    
-    const timer = setTimeout(() => setIsLoading(false), 50);
-    return () => clearTimeout(timer);
+    setIsLoading(false);
   }, []);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
+    if (isLoading) return;
     setStorageItem('products_data', products);
-  }, [products]);
+  }, [products, isLoading]);
 
   useEffect(() => {
+    if (isLoading) return;
     if (!setStorageItem('catalog_data', catalog)) {
        console.warn('Could not save catalog to localStorage. It might be too large.');
     }
-  }, [catalog]);
+  }, [catalog, isLoading]);
   
   useEffect(() => {
-    if (logo === null && !localStorage.getItem('logo_data')) return;
+    if (isLoading || (logo === null && !localStorage.getItem('logo_data'))) return;
     
     const logoSizeInBytes = logo ? new Blob([logo]).size : 0;
     const MAX_LOGO_SIZE = 500 * 1024; // 500 KB limit
@@ -109,12 +109,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     } else {
       console.warn('Logo is too large to be saved in localStorage.');
     }
-  }, [logo]);
+  }, [logo, isLoading]);
 
   useEffect(() => {
-    if (reportAuthor === null && !localStorage.getItem('report_author_data')) return;
+    if (isLoading || (reportAuthor === null && !localStorage.getItem('report_author_data'))) return;
     setStorageItem('report_author_data', reportAuthor);
-  }, [reportAuthor]);
+  }, [reportAuthor, isLoading]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
