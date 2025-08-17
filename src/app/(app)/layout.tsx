@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext } from 'react';
 import { Menu, Package } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,17 +13,8 @@ import { SplashScreen } from './_components/splash-screen';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { isLoading, logo } = useContext(DataContext);
-  const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    // This hook ensures that the component has mounted on the client
-    // before we attempt to render anything that depends on client-side state.
-    setIsClient(true);
-  }, []);
-  
-  // While loading, or if the logo isn't available yet on the client, show splash screen.
-  // The isClient check prevents a flash of the splash screen on the server.
-  if (!isClient || isLoading || !logo) {
+  if (isLoading) {
     return <SplashScreen logo={logo} />;
   }
 

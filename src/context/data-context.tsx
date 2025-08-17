@@ -80,11 +80,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // Load initial data from localStorage or data files.
   useEffect(() => {
+    setIsLoading(true);
+    // Directly set the state from localStorage or fallbacks.
+    // The logo will be available immediately for the splash screen.
     setProducts(getStorageItem('products_data', initialProducts));
     setCatalog(getStorageItem('catalog_data', initialCatalog));
     setLogoState(getStorageItem('logo_data', initialLogo));
     setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
-    // Only set loading to false after all states are initialized.
+    // Set loading to false after all states have been initialized.
     setIsLoading(false);
   }, []);
 
@@ -97,7 +100,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!isLoading) {
-      setStorageItem('catalog_data', catalog);
+      // Catch potential quota errors when saving large catalogs.
+      if (!setStorageItem('catalog_data', catalog)) {
+         console.warn('Could not save catalog to localStorage. It might be too large.');
+      }
     }
   }, [catalog, isLoading]);
 
