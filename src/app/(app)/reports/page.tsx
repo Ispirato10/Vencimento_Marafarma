@@ -47,6 +47,7 @@ import { DataContext } from '@/context/data-context';
 declare module 'jspdf' {
     interface jsPDF {
       autoTable: (options: any) => jsPDF;
+      lastAutoTable: { finalY: number };
     }
 }
 
@@ -144,7 +145,7 @@ export default function ReportsPage() {
       },
       didDrawPage: (data) => {
         // Footer
-        const pageCount = doc.getNumberOfPages();
+        const pageCount = (doc.internal as any).getNumberOfPages();
         doc.setFontSize(8);
         doc.setTextColor(100);
         
