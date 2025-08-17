@@ -55,6 +55,21 @@ const getStorageItem = <T,>(key: string, fallback: T): T => {
     }
 };
 
+// Helper function to safely set item in localStorage
+const setStorageItem = (key: string, value: any) => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+    try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        console.error(`Error saving localStorage key "${key}":`, error);
+        // This is where quota exceeded errors are caught.
+        // We could add a toast notification here if needed.
+    }
+};
+
+
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -74,25 +89,33 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   // Save data to localStorage whenever it changes
   useEffect(() => {
     if (!isLoading) {
-      localStorage.setItem('products_data', JSON.stringify(products));
+      setStorageItem('products_data', products);
     }
   }, [products, isLoading]);
 
   useEffect(() => {
     if (!isLoading) {
-      localStorage.setItem('catalog_data', JSON.stringify(catalog));
+      setStorageItem('catalog_data', catalog);
     }
   }, [catalog, isLoading]);
 
   useEffect(() => {
     if (!isLoading && logo) {
-      localStorage.setItem('logo_data', JSON.stringify(logo));
+       // Check logo size before saving to prevent quota errors
+      const logoSizeInBytes = new Blob([logo]).size;
+      const MAX_LOGO_SIZE = 500 * 1024; // 500 KB limit
+      if (logoSizeInBytes < MAX_LOGO_SIZE) {
+        setStorageItem('logo_data', logo);
+      } else {
+        console.warn('Logo is too large to be saved in localStorage.');
+        // Optionally, inform the user with a toast message.
+      }
     }
   }, [logo, isLoading]);
 
   useEffect(() => {
     if (!isLoading && reportAuthor) {
-      localStorage.setItem('report_author_data', JSON.stringify(reportAuthor));
+      setStorageItem('report_author_data', reportAuthor);
     }
   }, [reportAuthor, isLoading]);
 
