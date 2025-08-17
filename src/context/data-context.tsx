@@ -48,7 +48,7 @@ const getStorageItem = <T,>(key: string, fallback: T): T => {
     }
     try {
         const item = window.localStorage.getItem(key);
-        if (item === null || item === 'null') return fallback;
+        if (item === null || item === 'null' || item === 'undefined') return fallback;
         return item ? JSON.parse(item) : fallback;
     } catch (error) {
         console.warn(`Error reading localStorage key "${key}":`, error);
@@ -73,7 +73,7 @@ const setStorageItem = (key: string, value: any) => {
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [logo, setLogoState] = useState<string | null>(null);
+  const [logo, setLogoState] = useState<string | null>(initialLogo);
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -83,7 +83,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCatalog(getStorageItem('catalog_data', initialCatalog));
     setLogoState(getStorageItem('logo_data', initialLogo));
     setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
-    setIsLoading(false);
+    // Set loading to false after a short delay to ensure client-side hydration is complete
+    setTimeout(() => setIsLoading(false), 50);
   }, []);
 
   // Save data to localStorage whenever it changes
@@ -100,7 +101,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [catalog, isLoading]);
   
   useEffect(() => {
-    if (isLoading || (logo === null && !localStorage.getItem('logo_data'))) return;
+    if (isLoading || logo === initialLogo) return;
     
     const logoSizeInBytes = logo ? new Blob([logo]).size : 0;
     const MAX_LOGO_SIZE = 500 * 1024; // 500 KB limit
@@ -112,7 +113,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [logo, isLoading]);
 
   useEffect(() => {
-    if (isLoading || (reportAuthor === null && !localStorage.getItem('report_author_data'))) return;
+    if (isLoading) return;
     setStorageItem('report_author_data', reportAuthor);
   }, [reportAuthor, isLoading]);
 
