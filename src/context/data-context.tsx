@@ -22,7 +22,6 @@ interface DataContextType {
   setLogo: (logoData: string) => void;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
-  isLoading: boolean;
 }
 
 export const DataContext = createContext<DataContextType>({
@@ -41,7 +40,6 @@ export const DataContext = createContext<DataContextType>({
   setLogo: () => {},
   reportAuthor: null,
   setReportAuthor: () => {},
-  isLoading: true,
 });
 
 // Helper function to safely get item from localStorage
@@ -76,9 +74,9 @@ const setStorageItem = (key: string, value: any) => {
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [logo, setLogoState] = useState<string | null>(initialLogo);
+  const [logo, setLogoState] = useState<string | null>(null);
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
@@ -92,31 +90,31 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLogoState(storedLogo);
     setReportAuthorState(storedReportAuthor);
     
-    setIsLoading(false);
+    setIsInitialized(true);
   }, []);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (isLoading) return;
+    if (!isInitialized) return;
     setStorageItem('products_data', products);
-  }, [products, isLoading]);
+  }, [products, isInitialized]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!isInitialized) return;
     if (!setStorageItem('catalog_data', catalog)) {
        console.warn('Could not save catalog to localStorage. It might be too large.');
     }
-  }, [catalog, isLoading]);
+  }, [catalog, isInitialized]);
   
   useEffect(() => {
-    if (isLoading) return;
+    if (!isInitialized) return;
     setStorageItem('logo_data', logo);
-  }, [logo, isLoading]);
+  }, [logo, isInitialized]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!isInitialized) return;
     setStorageItem('report_author_data', reportAuthor);
-  }, [reportAuthor, isLoading]);
+  }, [reportAuthor, isInitialized]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
@@ -188,7 +186,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setLogo,
         reportAuthor,
         setReportAuthor,
-        isLoading,
     }}>
       {children}
     </DataContext.Provider>

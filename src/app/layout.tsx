@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
-import { ClientOnly } from '@/components/client-only';
 
 export const metadata: Metadata = {
   title: 'Controle de Vencimentos Marafarma',
@@ -28,9 +27,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ClientOnly>
-            {children}
-          </ClientOnly>
+          {children}
           <Toaster />
         </ThemeProvider>
       </body>
