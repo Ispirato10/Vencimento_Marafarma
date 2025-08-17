@@ -17,6 +17,12 @@ function AppLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
+  const { isLoading, logo } = useContext(DataContext);
+
+  if (isLoading) {
+    return <SplashScreen logo={logo} />;
+  }
+  
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-muted/40 md:block">
@@ -62,17 +68,6 @@ function AppLayoutContent({
 }
 
 
-function AppLayoutWithData({ children }: { children: React.ReactNode }) {
-  const { isLoading, logo } = useContext(DataContext);
-
-  if (isLoading) {
-    return <SplashScreen logo={logo} />;
-  }
-
-  return <AppLayoutContent>{children}</AppLayoutContent>;
-}
-
-
 export default function AppLayout({
   children,
 }: {
@@ -81,9 +76,9 @@ export default function AppLayout({
   return (
     <ClientOnly>
       <DataProvider>
-        <AppLayoutWithData>
+        <AppLayoutContent>
           {children}
-        </AppLayoutWithData>
+        </AppLayoutContent>
       </DataProvider>
     </ClientOnly>
   );
