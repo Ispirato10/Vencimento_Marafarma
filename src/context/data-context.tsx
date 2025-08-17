@@ -76,7 +76,7 @@ const setStorageItem = (key: string, value: any) => {
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [logo, setLogoState] = useState<string | null>(null);
+  const [logo, setLogoState] = useState<string | null>(initialLogo);
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
