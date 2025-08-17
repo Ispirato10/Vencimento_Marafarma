@@ -149,7 +149,7 @@ export default function ReportsPage() {
         doc.setTextColor(100);
         
         // System Name & Author
-        const footerTextLeft = `Marafarma | ${reportAuthor || ''}`;
+        const footerTextLeft = `Controle de Vencimentos Marafarma | ${reportAuthor || ''}`;
         doc.text(footerTextLeft, data.settings.margin.left, doc.internal.pageSize.height - 8);
 
         // Page Number
