@@ -82,8 +82,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
-    // We start in loading state. We load everything from storage first,
-    // then update the state and set loading to false. This prevents hydration issues.
     const storedProducts = getStorageItem('products_data', initialProducts);
     const storedCatalog = getStorageItem('catalog_data', initialCatalog);
     const storedLogo = getStorageItem('logo_data', initialLogo);
@@ -94,7 +92,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLogoState(storedLogo);
     setReportAuthorState(storedReportAuthor);
     
-    // Finished loading data from storage.
     setIsLoading(false);
   }, []);
 

@@ -10,7 +10,6 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { MainNav } from './_components/main-nav';
 import { DataContext, DataProvider } from '@/context/data-context';
 import { SplashScreen } from './_components/splash-screen';
-import { ClientOnly } from '@/components/client-only';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   return (
@@ -79,10 +78,8 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClientOnly>
-        <DataProvider>
-            <AppLayoutWithData>{children}</AppLayoutWithData>
-        </DataProvider>
-    </ClientOnly>
+    <DataProvider>
+        <AppLayoutWithData>{children}</AppLayoutWithData>
+    </DataProvider>
   );
 }
