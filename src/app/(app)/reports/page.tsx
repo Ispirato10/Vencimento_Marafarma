@@ -105,15 +105,16 @@ export default function ReportsPage() {
     });
 
     doc.setFontSize(16);
-    doc.text('Relatório de Vencimentos', 14, 15);
+    doc.text('Relatório de Vencimentos', 10, 15);
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 21);
+    doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, 10, 21);
 
-    const tableColumns = ['Produto', 'Lote', 'Categoria', 'Qtd.', 'Vencimento'];
+    const tableColumns = ['Produto', 'Código', 'Lote', 'Categoria', 'Qtd.', 'Vencimento'];
     
     const tableRows = filteredProducts.map(p => [
-      `${p.name}\n${p.code}`,
+      p.name,
+      p.code,
       p.batch || 'N/A',
       p.category || 'N/A',
       p.quantity,
@@ -126,24 +127,25 @@ export default function ReportsPage() {
       body: tableRows,
       theme: 'grid',
       styles: {
-        fontSize: 7, // Smaller font size
-        cellPadding: 1.2, // Tighter cell padding
+        fontSize: 6, // Smaller font size to fit more rows
+        cellPadding: 1, // Tighter cell padding
         overflow: 'linebreak',
       },
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 7.5,
+        fontSize: 6.5,
       },
        columnStyles: {
-        0: { cellWidth: 80 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 15, halign: 'right' },
-        4: { cellWidth: 20, halign: 'center' }
+        0: { cellWidth: 70 },  // Produto
+        1: { cellWidth: 30 },  // Código
+        2: { cellWidth: 20 },  // Lote
+        3: { cellWidth: 30 },  // Categoria
+        4: { cellWidth: 10, halign: 'right' }, // Qtd.
+        5: { cellWidth: 18, halign: 'center' } // Vencimento
       },
-      margin: { top: 10, right: 12, bottom: 15, left: 12 },
+      margin: { top: 10, right: 7, bottom: 15, left: 7 }, // Narrower side margins
       didDrawPage: (data) => {
         // This function is called after each page is drawn
         const pageCount = (doc.internal as any).getNumberOfPages();
@@ -151,13 +153,10 @@ export default function ReportsPage() {
         doc.setTextColor(100);
         
         const footerTextLeft = `Controle de Vencimentos Marafarma | ${reportAuthor || ''}`;
-        doc.text(footerTextLeft, 12, doc.internal.pageSize.height - 8);
-
-        // We will add the final page number after the whole document is rendered
+        doc.text(footerTextLeft, data.settings.margin.left, doc.internal.pageSize.height - 8);
       }
     });
     
-    // After the table is fully rendered, we can get the total page count and add it
     const totalPages = (doc.internal as any).getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
@@ -165,7 +164,7 @@ export default function ReportsPage() {
         doc.setTextColor(100);
         const footerTextRight = `Página ${i} de ${totalPages}`;
         const textWidth = doc.getStringUnitWidth(footerTextRight) * doc.getFontSize() / doc.internal.scaleFactor;
-        doc.text(footerTextRight, doc.internal.pageSize.width - 12 - textWidth, doc.internal.pageSize.height - 8);
+        doc.text(footerTextRight, doc.internal.pageSize.width - 7 - textWidth, doc.internal.pageSize.height - 8);
     }
 
 
