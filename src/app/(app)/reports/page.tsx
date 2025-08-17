@@ -1,5 +1,5 @@
 
-"use client";
+'use client';
 
 import { useState, useEffect, useContext } from 'react';
 import { format, differenceInDays, startOfDay, endOfDay } from 'date-fns';
@@ -105,10 +105,10 @@ export default function ReportsPage() {
     });
 
     doc.setFontSize(16);
-    doc.text('Relatório de Vencimentos', 10, 15);
+    doc.text('Relatório de Vencimentos', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, 10, 21);
+    doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, doc.internal.pageSize.getWidth() / 2, 21, { align: 'center' });
 
     const tableColumns = ['Produto', 'Código', 'Lote', 'Categoria', 'Qtd.', 'Vencimento'];
     
@@ -126,9 +126,9 @@ export default function ReportsPage() {
       head: [tableColumns],
       body: tableRows,
       theme: 'grid',
-      styles: {
-        fontSize: 6, // Smaller font size to fit more rows
-        cellPadding: 1, // Tighter cell padding
+       styles: {
+        fontSize: 6,
+        cellPadding: 1,
         overflow: 'linebreak',
       },
       headStyles: {
@@ -138,16 +138,15 @@ export default function ReportsPage() {
         fontSize: 6.5,
       },
        columnStyles: {
-        0: { cellWidth: 70 },  // Produto
-        1: { cellWidth: 30 },  // Código
-        2: { cellWidth: 20 },  // Lote
-        3: { cellWidth: 30 },  // Categoria
-        4: { cellWidth: 10, halign: 'right' }, // Qtd.
-        5: { cellWidth: 18, halign: 'center' } // Vencimento
+        0: { cellWidth: 70 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 10, halign: 'right' },
+        5: { cellWidth: 18, halign: 'center' }
       },
-      margin: { top: 10, right: 7, bottom: 15, left: 7 }, // Narrower side margins
+      margin: { top: 10, bottom: 15 },
       didDrawPage: (data) => {
-        // This function is called after each page is drawn
         const pageCount = (doc.internal as any).getNumberOfPages();
         doc.setFontSize(8);
         doc.setTextColor(100);
@@ -164,7 +163,7 @@ export default function ReportsPage() {
         doc.setTextColor(100);
         const footerTextRight = `Página ${i} de ${totalPages}`;
         const textWidth = doc.getStringUnitWidth(footerTextRight) * doc.getFontSize() / doc.internal.scaleFactor;
-        doc.text(footerTextRight, doc.internal.pageSize.width - 7 - textWidth, doc.internal.pageSize.height - 8);
+        doc.text(footerTextRight, doc.internal.pageSize.width - doc.autoTable.getPrevious().margin('right') - textWidth, doc.internal.pageSize.height - 8);
     }
 
 
