@@ -13,13 +13,8 @@ import { SplashScreen } from './_components/splash-screen';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { isLoading, logo } = useContext(DataContext);
-  const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient || isLoading) {
+  if (isLoading) {
     return <SplashScreen logo={logo} isLoading={isLoading} />;
   }
 
