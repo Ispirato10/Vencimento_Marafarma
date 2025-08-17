@@ -20,7 +20,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (!isClient || isLoading) {
-    return <SplashScreen logo={logo} />;
+    return <SplashScreen logo={logo} isLoading={isLoading} />;
   }
 
   return (
