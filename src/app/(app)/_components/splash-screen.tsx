@@ -12,7 +12,7 @@ interface SplashScreenProps {
 export function SplashScreen({ logo, isLoading }: SplashScreenProps) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
-      {/* Always render the logo image to prevent hydration issues and flashing content */}
+      {/* Render the logo image if available, otherwise show a loader. This prevents hydration issues. */}
       {logo ? (
         <Image 
           src={logo} 
@@ -23,7 +23,6 @@ export function SplashScreen({ logo, isLoading }: SplashScreenProps) {
           priority 
         />
       ) : (
-        // Fallback loader if logo is somehow null, which should not happen with the new DataContext logic
         <Loader2 className="h-16 w-16 animate-spin text-primary mb-4" />
       )}
       {isLoading && <p className="text-lg text-muted-foreground">Carregando dados...</p>}
