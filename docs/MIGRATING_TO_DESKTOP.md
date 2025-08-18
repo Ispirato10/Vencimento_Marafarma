@@ -1,10 +1,10 @@
 # Guia de Migração: Do Navegador para o Desktop
 
-Este documento fornece orientações para adaptar o armazenamento de dados deste aplicativo do `localStorage` do navegador para um sistema de arquivos local, um passo necessário para a migração para uma aplicação de desktop (usando tecnologias como Electron, Tauri, etc.).
+Este documento fornece orientações para adaptar o armazenamento de dados deste aplicativo do `localStorage` do navegador para um sistema de arquivos local, um passo necessário para a migração para uma aplicação de desktop (usando tecnologias como Electron, Tauri, etc.) ou um backend em outra linguagem.
 
 ## Visão Geral
 
-Atualmente, a aplicação utiliza o `localStorage` para persistir todos os dados: produtos, catálogo, configurações, etc. O `localStorage` é uma API exclusiva do navegador e não funcionará em um ambiente de desktop Node.js.
+Atualmente, a aplicação utiliza o `localStorage` para persistir todos os dados: produtos, catálogo, configurações, etc. O `localStorage` é uma API exclusiva do navegador e não funcionará em um ambiente de desktop Node.js ou Python.
 
 O objetivo é substituir as chamadas ao `localStorage` por operações de leitura e escrita no sistema de arquivos local.
 
@@ -17,7 +17,7 @@ As duas funções principais que precisam ser substituídas são `getStorageItem
 
 ---
 
-## Passo a Passo para a Migração
+## Passo a Passo para a Migração (Ambiente Node.js - ex: Electron)
 
 A migração envolve a reescrita das funções de armazenamento para usar o módulo `fs` (File System) do Node.js, que é acessível em ambientes como o Electron.
 
@@ -110,7 +110,63 @@ const setStorageItem = (key: string, value: any) => {
     }
 };
 ```
+---
+
+## Alternativa para Ambiente Python (Ex: PySide, Tkinter)
+
+Se a aplicação for migrada para um backend ou desktop em Python, a lógica seria semelhante, mas usando os módulos `os` e `json` do Python. As funções equivalentes seriam:
+
+### 1. Configuração Inicial em Python
+
+```python
+import os
+import json
+
+# Define o diretório onde os dados serão salvos
+DATA_PATH = 'dados_app'
+
+# Garante que o diretório exista
+if not os.path.exists(DATA_PATH):
+    os.makedirs(DATA_PATH)
+```
+
+### 2. Função `get_storage_item` em Python
+
+```python
+def get_storage_item(key, fallback):
+    """
+    Lê um arquivo JSON de dados.
+    Retorna o conteúdo ou o valor de fallback se o arquivo não existir ou ocorrer um erro.
+    """
+    file_path = os.path.join(DATA_PATH, f"{key}.json")
+    if not os.path.exists(file_path):
+        return fallback
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Erro ao ler o arquivo {file_path}: {e}")
+        return fallback
+```
+
+### 3. Função `set_storage_item` em Python
+
+```python
+def set_storage_item(key, value):
+    """
+    Salva dados em um arquivo JSON.
+    Retorna True em caso de sucesso, False em caso de falha.
+    """
+    file_path = os.path.join(DATA_PATH, f"{key}.json")
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(value, f, indent=2, ensure_ascii=False)
+        return True
+    except IOError as e:
+        print(f"Erro ao salvar o arquivo {file_path}: {e}")
+        return False
+```
 
 ## Conclusão
 
-Ao substituir essas duas funções em `src/context/data-context.tsx`, você efetivamente troca a camada de persistência de dados do navegador por uma baseada em arquivos locais. O resto da aplicação, que consome os dados através do `DataContext`, continuará funcionando sem a necessidade de outras alterações, pois a lógica de negócio está desacoplada do método de armazenamento.
+Ao substituir as duas funções `getStorageItem` e `setStorageItem` em `src/context/data-context.tsx` pelas equivalentes do ambiente de destino (Node.js ou Python), você efetivamente troca a camada de persistência de dados. O resto da aplicação, que consome os dados através do `DataContext`, continuará funcionando sem a necessidade de outras alterações, pois a lógica de negócio está desacoplada do método de armazenamento.
