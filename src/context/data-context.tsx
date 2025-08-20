@@ -24,7 +24,6 @@ interface DataContextType {
   setReportAuthor: (author: string) => void;
   logo: string | null;
   setLogo: (logo: string | null) => void;
-  isLoading: boolean;
 }
 
 export const DataContext = createContext<DataContextType>({
@@ -43,7 +42,6 @@ export const DataContext = createContext<DataContextType>({
   setReportAuthor: () => {},
   logo: null,
   setLogo: () => {},
-  isLoading: true,
 });
 
 // Helper function to safely get item from localStorage
@@ -90,7 +88,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Load data from localStorage on the client side after initial render
   useEffect(() => {
@@ -105,34 +103,29 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if(storedLogo) {
       setLogo(storedLogo);
     }
-    
-    // Simulate loading time and then set loading to false
-    setTimeout(() => {
-        setIsLoading(false);
-    }, 1500);
-
+    setDataLoaded(true);
   }, []);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (isLoading) return;
+    if (!dataLoaded) return;
     setStorageItem('products_data', products);
-  }, [products, isLoading]);
+  }, [products, dataLoaded]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!dataLoaded) return;
     setStorageItem('catalog_data', catalog);
-  }, [catalog, isLoading]);
+  }, [catalog, dataLoaded]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!dataLoaded) return;
     setStorageItem('report_author_data', reportAuthor);
-  }, [reportAuthor, isLoading]);
+  }, [reportAuthor, dataLoaded]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!dataLoaded) return;
     setStorageItem('company_logo_data', logo);
-  }, [logo, isLoading]);
+  }, [logo, dataLoaded]);
 
   const addProduct = (product: Product) => {
     setProducts((prevProducts) => [...prevProducts, product]);
@@ -200,7 +193,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setReportAuthor,
         logo,
         setLogo,
-        isLoading,
     }}>
       {children}
     </DataContext.Provider>
