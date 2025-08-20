@@ -12,12 +12,15 @@ Siga os passos abaixo:
 - Acesse o **[Console do Firebase](https://console.firebase.google.com/)**.
 - Selecione o seu projeto (ex: `ControledeVencimentosMarafarma`).
 - Vá para **Configurações do Projeto** (clicando no ícone de engrenagem).
-- Na aba **Geral**, role para baixo até a seção **Seus aplicativos**.
-- Se você ainda não tiver um aplicativo web, crie um.
-- Encontre e copie os valores do objeto de configuração do Firebase (`firebaseConfig`).
+- Na aba **Geral**, role para baixo até a seção **"Seus aplicativos"**.
+- **Se você ainda não tiver um aplicativo web, crie um:**
+    - Clique no ícone de **Web** (`</>`).
+    - Dê um apelido ao seu aplicativo (ex: "Controle de Vencimentos Web").
+    - Clique em **"Registrar aplicativo"**.
+- Na tela seguinte, o Firebase mostrará o objeto de configuração `firebaseConfig`. Copie os valores deste objeto.
 
 ### 2. Configure as Variáveis de Ambiente
-- Renomeie o arquivo `.env.local.example` na raiz do projeto para `.env.local`.
+- Na raiz do projeto, renomeie o arquivo `.env.local.example` para `.env.local`.
 - Cole os valores que você copiou do seu console do Firebase no arquivo `.env.local`, substituindo os valores de exemplo.
 
 ### 3. Crie as Coleções no Firestore
