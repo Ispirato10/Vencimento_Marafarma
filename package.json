@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "package": "pkg . --targets node18-win-x64 --output marafarma-vencimentos.exe",
+    "package": "npm run build && pkg . --targets node18-win-x64 --output marafarma-vencimentos.exe",
     "postinstall": "patch-package"
   },
   "bin": "./.next/standalone/server.js",
