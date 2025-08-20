@@ -2,49 +2,40 @@
 
 Este é um aplicativo Next.js para controle de vencimentos de produtos, integrado com o Firebase Firestore para persistência de dados.
 
-## Primeiros Passos com o Firebase
+## Conectando seu Próprio Projeto Firebase
 
-Para que o aplicativo funcione corretamente, ele precisa se conectar ao banco de dados Firestore. As credenciais já estão no código, mas as "coleções" (que funcionam como tabelas) precisam ser criadas manualmente no seu console do Firebase.
+Para que o aplicativo funcione corretamente, ele precisa se conectar ao seu banco de dados Firestore. A configuração do Firebase agora é carregada a partir de variáveis de ambiente.
 
 Siga os passos abaixo:
 
-### 1. Acesse o Firestore:
-- Clique no link a seguir para ir direto para o seu banco de dados no Console do Firebase:
-- **[Acessar Firestore do Projeto Marafarma](https://console.firebase.google.com/project/marafarma-424419/firestore)**
+### 1. Obtenha as Credenciais do seu Projeto Firebase
+- Acesse o **[Console do Firebase](https://console.firebase.google.com/)**.
+- Selecione o seu projeto (ex: `ControledeVencimentosMarafarma`).
+- Vá para **Configurações do Projeto** (clicando no ícone de engrenagem).
+- Na aba **Geral**, role para baixo até a seção **Seus aplicativos**.
+- Se você ainda não tiver um aplicativo web, crie um.
+- Encontre e copie os valores do objeto de configuração do Firebase (`firebaseConfig`).
 
-### 2. Crie o Banco de Dados (se for o primeiro acesso):
-- Se você ainda não configurou o Firestore, clique em **"Criar banco de dados"**.
-- Selecione **"Iniciar no modo de produção"** e clique em **"Avançar"**.
-- Escolha uma localização (ex: `southamerica-east1` para São Paulo) e clique em **"Ativar"**.
+### 2. Configure as Variáveis de Ambiente
+- Renomeie o arquivo `.env.local.example` na raiz do projeto para `.env.local`.
+- Cole os valores que você copiou do seu console do Firebase no arquivo `.env.local`, substituindo os valores de exemplo.
 
-### 3. Crie a Coleção `catalog`:
-- Na tela principal do Firestore, clique em **"+ Iniciar coleção"**.
-- **ID da coleção:** digite `catalog`.
-- Clique em **Avançar**.
-- O sistema pedirá para criar o primeiro "documento". Clique em **"ID automática"**.
-- Adicione os seguintes campos para um item de exemplo:
-  - `code` (string): `000`
-  - `name` (string): `Item de Teste`
-  - `category` (string): `Categoria Teste`
-- Clique em **Salvar**.
+### 3. Crie as Coleções no Firestore
+- Acesse o **Firestore** no seu console do Firebase.
+- Se for o primeiro acesso, clique em **"Criar banco de dados"**, selecione o **modo de produção** e escolha uma localização.
+- Crie as duas coleções necessárias para o aplicativo: `catalog` e `products`.
 
-### 4. Crie a Coleção `products`:
-- Volte para a tela principal e clique novamente em **"+ Iniciar coleção"**.
-- **ID da coleção:** digite `products`.
-- Clique em **Avançar**.
-- Clique em **"ID automática"** para o documento.
-- Adicione os campos para um produto de exemplo:
-  - `code` (string): `000`
-  - `name` (string): `Produto de Teste`
-  - `category` (string): `Categoria Teste`
-  - `batch` (string): `LOTE01`
-  - `quantity` (number): `10`
-  - `expirationDate` (string): `2025-12-31T00:00:00.000Z`
-- Clique em **Salvar**.
+#### Para a coleção `catalog`:
+- **ID da coleção:** `catalog`
+- Crie um documento de exemplo com os campos: `code` (string), `name` (string), `category` (string).
 
-### 5. Popule os Dados
-- Após criar as coleções, você está pronto!
+#### Para a coleção `products`:
+- **ID da coleção:** `products`
+- Crie um documento de exemplo com os campos: `code` (string), `name` (string), `category` (string), `batch` (string), `quantity` (number), `expirationDate` (string, formato `YYYY-MM-DDTHH:mm:ss.sssZ`).
+
+### 4. Popule os Dados
+- Após configurar o projeto e as coleções, você está pronto!
 - Abra o aplicativo e vá para a página **Configurações**.
-- Use os botões **Importar (XLSX)** para carregar seus dados de catálogo e estoque de produtos para o Firebase.
+- Use os botões **Importar (XLSX)** para carregar seus dados de catálogo e estoque para o seu Firebase.
 
-Com isso, seu aplicativo estará totalmente funcional e conectado ao banco de dados na nuvem.
+Com isso, seu aplicativo estará totalmente funcional e conectado ao **seu próprio** banco de dados na nuvem.
