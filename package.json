@@ -1,3 +1,4 @@
+
 {
   "name": "nextn",
   "version": "0.1.0",
@@ -7,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "package": "pkg . --targets node18-win-x64 --output marafarma-vencimentos.exe"
+    "package": "pkg . --targets node18-win-x64 --output marafarma-vencimentos.exe",
+    "postinstall": "patch-package"
   },
   "bin": "./.next/standalone/server.js",
   "pkg": {
@@ -16,9 +18,7 @@
     ],
     "assets": [
       ".next/standalone/node_modules/**/*",
-      ".next/standalone/.next/server/pages-manifest.json",
-      ".next/standalone/.next/server/app/**",
-      ".next/standalone/.next/static/**"
+      ".next/standalone/.next/**/*"
     ]
   },
   "dependencies": {
