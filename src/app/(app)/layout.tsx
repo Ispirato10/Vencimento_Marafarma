@@ -11,12 +11,26 @@ import { MainNav } from './_components/main-nav';
 import { DataProvider, DataContext } from '@/context/data-context';
 import { ClientOnly } from '@/components/client-only';
 import { Toaster } from '@/components/ui/toaster';
+import { ThemeToggle } from './_components/theme-toggle';
+
 
 function AppLayoutContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { loading } = useContext(DataContext);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <div className="flex items-center gap-4 text-lg text-muted-foreground">
+          <LoaderCircle className="h-8 w-8 animate-spin" />
+          <p>Carregando dados do servidor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
@@ -25,7 +39,7 @@ function AppLayoutContent({
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link href="/" className="flex items-center gap-2 font-semibold">
               <Package className="h-6 w-6" />
-              <span className="">Controle de Vencimentos Marafarma</span>
+              <span className="">Controle de Vencimentos</span>
             </Link>
           </div>
           <div className="flex-1">
@@ -47,12 +61,19 @@ function AppLayoutContent({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
+               <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+                  <Link href="/" className="flex items-center gap-2 font-semibold">
+                    <Package className="h-6 w-6" />
+                    <span className="">Controle de Vencimentos</span>
+                  </Link>
+                </div>
               <MainNav isMobile />
             </SheetContent>
           </Sheet>
           <div className="w-full flex-1">
             {/* Can add a search bar here later */}
           </div>
+          <ThemeToggle />
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
           {children}

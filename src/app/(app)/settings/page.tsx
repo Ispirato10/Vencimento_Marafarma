@@ -6,6 +6,7 @@ import { FileUp, FileDown, Trash2, Upload, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parse, isPast } from 'date-fns';
 import Image from 'next/image';
+import { writeBatch } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -24,51 +25,21 @@ import { useToast } from '@/hooks/use-toast';
 import type { CatalogItem, Product } from '@/types';
 import { DataContext } from '@/context/data-context';
 import { DeleteExpiredDialog } from './_components/delete-expired-dialog';
-
-// Helper function to convert Excel serial date to JS Date
-// Excel stores dates as number of days since 1900-01-01.
-const excelSerialDateToJSDate = (serial: number) => {
-  if (typeof serial !== 'number') return null;
-  // Excel's epoch starts on 1899-12-30, not 1900-01-01, due to a bug.
-  // We subtract 1 to align with JS's epoch (which is day 0)
-  const excelEpoch = new Date(1899, 11, 30);
-  return new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
-}
+import { db } from '@/lib/firebase';
 
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { catalog, products, setCatalog, setProducts, reportAuthor, setReportAuthor, deleteExpiredProducts, logo, setLogo } = useContext(DataContext);
+  const { catalog, products, setCatalog, setProducts, reportAuthor, setReportAuthor, deleteExpiredProducts } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
-  const logoImportRef = useRef<HTMLInputElement>(null);
-
+  
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [isDeleteExpiredDialogOpen, setIsDeleteExpiredDialogOpen] = useState(false);
   
   const expiredProductsCount = products.filter(p => isPast(new Date(p.expirationDate))).length;
 
-  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 1024 * 1024) { // 1MB limit
-        toast({ variant: 'destructive', title: 'Erro', description: 'O arquivo de imagem é muito grande. O limite é de 1MB.' });
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const result = e.target?.result;
-        if (typeof result === 'string') {
-            setLogo(result);
-            toast({ title: 'Sucesso!', description: 'Logo da empresa atualizado.' });
-        }
-    };
-    reader.readAsDataURL(file);
-    event.target.value = ''; // Reset input
-  };
 
   const handleExportCatalog = () => {
     if (catalog.length === 0) {
@@ -102,7 +73,6 @@ export default function SettingsPage() {
     catalogImportRef.current?.click();
   };
   
-  // To update the progress bar without freezing the UI
   const processInChunks = async <T,>(items: any[], processChunk: (chunk: any[]) => T[], onComplete: (results: T[]) => void, onSkipped: (item: any) => void = () => {}) => {
     setIsImporting(true);
     setImportProgress(0);
@@ -123,7 +93,6 @@ export default function SettingsPage() {
             const progress = Math.round(((i + 1) / totalItems) * 100);
             setImportProgress(progress);
             i += 1;
-            // Brief pause to allow UI to re-render
             await new Promise(resolve => setTimeout(resolve, 0));
             await step();
         } else {
@@ -155,7 +124,6 @@ export default function SettingsPage() {
 
         const processCatalogChunk = (chunk: any[]): CatalogItem[] => {
             const item = chunk[0];
-            // Basic validation for each item
             if (item.code && item.name) {
                 return [{
                     code: String(item.code),
@@ -166,8 +134,9 @@ export default function SettingsPage() {
             return [];
         };
 
-        const onCatalogImportComplete = (processedCatalog: CatalogItem[]) => {
+        const onCatalogImportComplete = async (processedCatalog: CatalogItem[]) => {
             if (processedCatalog.length > 0) {
+                // Here we batch write to firestore
                 setCatalog(processedCatalog);
                 toast({
                     title: 'Importação Concluída!',
@@ -183,14 +152,6 @@ export default function SettingsPage() {
                     description: `${skippedCount} itens foram ignorados por falta de 'código' ou 'nome'.`,
                 });
             }
-
-            if (processedCatalog.length === 0 && skippedCount > 0) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Importação Falhou',
-                    description: 'Nenhum item válido encontrado. Verifique as colunas do arquivo.',
-                });
-            }
         };
 
         await processInChunks(
@@ -202,17 +163,11 @@ export default function SettingsPage() {
       
       } catch (error) {
         console.error('Erro ao importar arquivo de catálogo:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato está correto.';
-        toast({ variant: 'destructive', title: 'Erro de Importação', description: errorMessage });
+        toast({ variant: 'destructive', title: 'Erro de Importação' });
         setIsImporting(false);
       }
     };
-    reader.onerror = () => {
-       toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo selecionado.' });
-       setIsImporting(false);
-    };
     reader.readAsArrayBuffer(file);
-    
     event.target.value = '';
   };
 
@@ -222,10 +177,7 @@ export default function SettingsPage() {
 
   const handleDatabaseFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Nenhum arquivo selecionado.' });
-      return;
-    }
+    if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -243,16 +195,15 @@ export default function SettingsPage() {
             let expirationDate: Date | null = null;
             const dateValue = item.expirationDate;
 
-            const hasRequiredColumns = item.code && item.name && item.quantity !== undefined && dateValue;
-
-            if (hasRequiredColumns) {
+            if (item.code && item.name && item.quantity !== undefined && dateValue) {
                 if (typeof dateValue === 'string') {
                     expirationDate = parse(dateValue, 'yyyy-MM-dd', new Date());
                     if (isNaN(expirationDate.getTime())) {
                         expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
                     }
                 } else if (typeof dateValue === 'number') {
-                    expirationDate = excelSerialDateToJSDate(dateValue);
+                    // Handle Excel serial date
+                    expirationDate = new Date(1899, 11, 30 + dateValue);
                 }
 
                 if (expirationDate && !isNaN(expirationDate.getTime())) {
@@ -266,7 +217,7 @@ export default function SettingsPage() {
                     }];
                 }
             }
-            return []; // Return empty for invalid rows
+            return [];
         };
 
         const onDatabaseImportComplete = (processedProducts: Product[]) => {
@@ -274,7 +225,7 @@ export default function SettingsPage() {
                 setProducts(processedProducts);
                 toast({
                   title: 'Importação Concluída!',
-                  description: `${processedProducts.length} produtos foram importados para o estoque.`,
+                  description: `${processedProducts.length} produtos foram importados.`,
                   variant: 'accent'
                 });
             }
@@ -282,16 +233,8 @@ export default function SettingsPage() {
             if (skippedCount > 0) {
                 toast({
                   variant: 'destructive',
-                  title: 'Alguns Itens Foram Ignorados',
-                  description: `Não foi possível importar ${skippedCount} itens por falta de dados ou data inválida.`,
-                });
-            }
-
-            if (processedProducts.length === 0 && skippedCount > 0) {
-                 toast({
-                  variant: 'destructive',
-                  title: 'Importação Falhou',
-                  description: 'Nenhum produto foi importado. Verifique se as colunas do arquivo estão corretas.',
+                  title: 'Itens Ignorados',
+                  description: `${skippedCount} itens ignorados por dados inválidos.`,
                 });
             }
         };
@@ -304,23 +247,17 @@ export default function SettingsPage() {
         );
 
       } catch (error) {
-        console.error('Erro ao importar arquivo de banco de dados:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao ler o arquivo. Verifique se o formato e as colunas estão corretos.';
-        toast({ variant: 'destructive', title: 'Erro de Importação', description: errorMessage });
+        console.error('Erro ao importar banco de dados:', error);
+        toast({ variant: 'destructive', title: 'Erro de Importação' });
         setIsImporting(false);
       }
     };
-    reader.onerror = () => {
-       toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo selecionado.' });
-       setIsImporting(false);
-    };
     reader.readAsArrayBuffer(file);
-    
     event.target.value = '';
   };
   
-  const handleConfirmDeleteExpired = () => {
-    deleteExpiredProducts();
+  const handleConfirmDeleteExpired = async () => {
+    await deleteExpiredProducts();
     toast({
       title: 'Produtos Vencidos Excluídos!',
       description: `${expiredProductsCount} itens foram removidos do estoque.`,
@@ -348,14 +285,6 @@ export default function SettingsPage() {
         accept=".xlsx, .xls"
         disabled={isImporting}
       />
-       <input
-        type="file"
-        ref={logoImportRef}
-        onChange={handleLogoFileChange}
-        className="hidden"
-        accept="image/png"
-        disabled={isImporting}
-      />
       
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
@@ -363,38 +292,6 @@ export default function SettingsPage() {
           Gerencie as configurações de aparência e dados do aplicativo.
         </p>
       </div>
-
-       <Card>
-        <CardHeader>
-          <CardTitle>Logo da Empresa</CardTitle>
-          <CardDescription>
-            Faça o upload do logo que será exibido na tela de carregamento (PNG, máx 1MB).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <div className="w-24 h-24 rounded-md border border-dashed flex items-center justify-center bg-muted/40">
-              {logo ? (
-                 <Image src={logo} alt="Logo" width={80} height={80} className="object-contain" />
-              ) : (
-                <span className="text-xs text-muted-foreground text-center">Sem logo</span>
-              )}
-            </div>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => logoImportRef.current?.click()}>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Alterar Logo
-                </Button>
-                {logo && (
-                    <Button variant="ghost" size="sm" onClick={() => setLogo(null)}>
-                        <X className="mr-2 h-4 w-4" />
-                        Remover
-                    </Button>
-                )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

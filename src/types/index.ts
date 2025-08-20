@@ -1,4 +1,5 @@
 export type Product = {
+  id?: string; // Firestore document ID
   code: string;
   name: string;
   quantity: number;
@@ -8,6 +9,7 @@ export type Product = {
 };
 
 export type CatalogItem = {
+  id?: string; // Firestore document ID
   code: string;
   name: string;
   category: string;

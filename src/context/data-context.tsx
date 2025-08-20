@@ -1,47 +1,57 @@
 
 'use client';
 
-import { createContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  writeBatch,
+  getDoc,
+  updateDoc
+} from 'firebase/firestore';
 import type { Product, CatalogItem } from '@/types';
-import { initialProducts, initialCatalog, initialReportAuthor } from '@/lib/data';
 import { isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
 
 
 interface DataContextType {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
-  addProduct: (product: Product) => void;
-  updateProduct: (productToUpdate: Product) => void;
-  deleteProduct: (productCode: string, productBatch: string) => void;
-  deleteExpiredProducts: () => void;
+  addProduct: (product: Product) => Promise<void>;
+  updateProduct: (productToUpdate: Product) => Promise<void>;
+  deleteProduct: (productCode: string, productBatch: string) => Promise<void>;
+  deleteExpiredProducts: () => Promise<void>;
   catalog: CatalogItem[];
   setCatalog: React.Dispatch<React.SetStateAction<CatalogItem[]>>;
-  addCatalogItem: (item: CatalogItem) => void;
-  updateCatalogItem: (itemToUpdate: CatalogItem) => void;
-  deleteCatalogItem: (itemCode: string) => void;
+  addCatalogItem: (item: CatalogItem) => Promise<void>;
+  updateCatalogItem: (itemToUpdate: CatalogItem) => Promise<void>;
+  deleteCatalogItem: (itemCode: string) => Promise<void>;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
-  logo: string | null;
-  setLogo: (logo: string | null) => void;
+  loading: boolean;
 }
 
 export const DataContext = createContext<DataContextType>({
   products: [],
   setProducts: () => {},
-  addProduct: () => {},
-  updateProduct: () => {},
-  deleteProduct: () => {},
-  deleteExpiredProducts: () => {},
+  addProduct: async () => {},
+  updateProduct: async () => {},
+  deleteProduct: async () => {},
+  deleteExpiredProducts: async () => {},
   catalog: [],
   setCatalog: () => {},
-  addCatalogItem: () => {},
-  updateCatalogItem: () => {},
-  deleteCatalogItem: () => {},
+  addCatalogItem: async () => {},
+  updateCatalogItem: async () => {},
+  deleteCatalogItem: async () => {},
   reportAuthor: null,
   setReportAuthor: () => {},
-  logo: null,
-  setLogo: () => {},
+  loading: true,
 });
 
 // Helper function to safely get item from localStorage
@@ -73,7 +83,7 @@ const setStorageItem = (key: string, value: any) => {
              toast({
                 variant: 'destructive',
                 title: 'Erro de Armazenamento',
-                description: `Não foi possível salvar os dados de "${key}". O arquivo é muito grande para o armazenamento local do navegador. As alterações não serão mantidas se a página for atualizada.`,
+                description: `Não foi possível salvar os dados. O armazenamento local do navegador está cheio. As alterações não serão mantidas se a página for atualizada.`,
                 duration: 10000,
             });
         } else {
@@ -87,89 +97,141 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
-  const [logo, setLogo] = useState<string | null>(null);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Load data from localStorage on the client side after initial render
-  useEffect(() => {
-    const storedProducts = getStorageItem('products_data', initialProducts);
-    const storedCatalog = getStorageItem('catalog_data', initialCatalog);
-    const storedReportAuthor = getStorageItem('report_author_data', initialReportAuthor);
-    const storedLogo = getStorageItem('company_logo_data', null);
-    
-    setProducts(storedProducts);
-    setCatalog(storedCatalog);
-    setReportAuthorState(storedReportAuthor);
-    if(storedLogo) {
-      setLogo(storedLogo);
+  // Load data from Firestore on initial load
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Fetch products
+      const productsSnapshot = await getDocs(collection(db, 'products'));
+      const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+      setProducts(productsData);
+
+      // Fetch catalog
+      const catalogSnapshot = await getDocs(collection(db, 'catalog'));
+      const catalogData = catalogSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CatalogItem[];
+      setCatalog(catalogData);
+
+    } catch (error) {
+      console.error("Error fetching data from Firestore:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar dados",
+        description: "Não foi possível conectar ao banco de dados. Verifique sua conexão e tente novamente.",
+      });
+    } finally {
+      setLoading(false);
     }
-    setDataLoaded(true);
   }, []);
 
-  // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (!dataLoaded) return;
-    setStorageItem('products_data', products);
-  }, [products, dataLoaded]);
+    fetchData();
+     // Load non-Firestore data from localStorage
+    const storedReportAuthor = getStorageItem('report_author_data', 'By Marafarma');
+    setReportAuthorState(storedReportAuthor);
+  }, [fetchData]);
 
-  useEffect(() => {
-    if (!dataLoaded) return;
-    setStorageItem('catalog_data', catalog);
-  }, [catalog, dataLoaded]);
 
+  // Save non-Firestore data to localStorage
   useEffect(() => {
-    if (!dataLoaded) return;
     setStorageItem('report_author_data', reportAuthor);
-  }, [reportAuthor, dataLoaded]);
+  }, [reportAuthor]);
 
-  useEffect(() => {
-    if (!dataLoaded) return;
-    setStorageItem('company_logo_data', logo);
-  }, [logo, dataLoaded]);
 
-  const addProduct = (product: Product) => {
-    setProducts((prevProducts) => [...prevProducts, product]);
+  const addProduct = async (product: Product) => {
+    try {
+      // Use code + batch as a unique ID
+      const docId = `${product.code}_${product.batch}`;
+      const docRef = doc(db, 'products', docId);
+      await setDoc(docRef, product);
+      setProducts((prev) => [...prev, { ...product, id: docId }]);
+    } catch (error) {
+      console.error("Error adding product: ", error);
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível adicionar o produto.' });
+    }
   };
   
-  const updateProduct = (productToUpdate: Product) => {
-    setProducts((prevProducts) => 
-        prevProducts.map((p) => 
-            p.code === productToUpdate.code && p.batch === productToUpdate.batch ? productToUpdate : p
-        )
-    );
+  const updateProduct = async (productToUpdate: Product) => {
+    try {
+      const docId = `${productToUpdate.code}_${productToUpdate.batch}`;
+      const docRef = doc(db, "products", docId);
+      await updateDoc(docRef, productToUpdate);
+      setProducts((prev) => prev.map((p) => (p.code === productToUpdate.code && p.batch === productToUpdate.batch ? productToUpdate : p)));
+    } catch (error) {
+       console.error("Error updating product: ", error);
+       toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível atualizar o produto.' });
+    }
   };
 
-  const deleteProduct = (productCode: string, productBatch: string) => {
-     setProducts((prevProducts) => 
-        prevProducts.filter((p) => !(p.code === productCode && p.batch === productBatch))
-    );
+  const deleteProduct = async (productCode: string, productBatch: string) => {
+     try {
+      const docId = `${productCode}_${productBatch}`;
+      await deleteDoc(doc(db, "products", docId));
+      setProducts((prev) => prev.filter((p) => !(p.code === productCode && p.batch === productBatch)));
+    } catch (error) {
+      console.error("Error deleting product: ", error);
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível excluir o produto.' });
+    }
   };
 
-  const deleteExpiredProducts = () => {
-    setProducts((prevProducts) => 
-        prevProducts.filter(p => !isPast(new Date(p.expirationDate)))
-    );
-  };
+  const deleteExpiredProducts = async () => {
+    const expiredProducts = products.filter(p => isPast(new Date(p.expirationDate)));
+    if (expiredProducts.length === 0) return;
 
-  const addCatalogItem = (item: CatalogItem) => {
-    setCatalog((prevCatalog) => {
-      if (prevCatalog.some(i => i.code === item.code)) {
-        return prevCatalog;
-      }
-      return [...prevCatalog, item];
+    const batch = writeBatch(db);
+    expiredProducts.forEach(product => {
+      const docId = `${product.code}_${product.batch}`;
+      const docRef = doc(db, "products", docId);
+      batch.delete(docRef);
     });
+
+    try {
+        await batch.commit();
+        setProducts((prev) => prev.filter(p => !isPast(new Date(p.expirationDate))));
+    } catch (error) {
+        console.error("Error deleting expired products: ", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível excluir os produtos vencidos.' });
+    }
+  };
+
+  const addCatalogItem = async (item: CatalogItem) => {
+    try {
+      const docRef = doc(db, 'catalog', item.code);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+         // Item already exists, no need to add again
+         return;
+      }
+
+      await setDoc(docRef, item);
+      setCatalog((prev) => [...prev, item]);
+    } catch (error) {
+       console.error("Error adding catalog item: ", error);
+       toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível adicionar o item ao catálogo.' });
+    }
   }
 
-  const updateCatalogItem = (itemToUpdate: CatalogItem) => {
-     setCatalog((prevCatalog) => 
-        prevCatalog.map((item) => 
-            item.code === itemToUpdate.code ? itemToUpdate : item
-        )
-    );
+  const updateCatalogItem = async (itemToUpdate: CatalogItem) => {
+    try {
+      const docRef = doc(db, "catalog", itemToUpdate.code);
+      await setDoc(docRef, itemToUpdate, { merge: true });
+      setCatalog((prev) => prev.map((item) => (item.code === itemToUpdate.code ? itemToUpdate : item)));
+    } catch (error) {
+      console.error("Error updating catalog item: ", error);
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível atualizar o item do catálogo.' });
+    }
   }
 
-  const deleteCatalogItem = (itemCode: string) => {
-    setCatalog((prevCatalog) => prevCatalog.filter((item) => item.code !== itemCode));
+  const deleteCatalogItem = async (itemCode: string) => {
+    try {
+      await deleteDoc(doc(db, "catalog", itemCode));
+      setCatalog((prev) => prev.filter((item) => item.code !== itemCode));
+    } catch (error) {
+        console.error("Error deleting catalog item: ", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível excluir o item do catálogo.' });
+    }
   };
   
   const setReportAuthor = (author: string) => {
@@ -191,8 +253,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         deleteCatalogItem,
         reportAuthor,
         setReportAuthor,
-        logo,
-        setLogo,
+        loading,
     }}>
       {children}
     </DataContext.Provider>
