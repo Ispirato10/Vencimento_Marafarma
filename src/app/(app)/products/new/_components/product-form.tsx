@@ -150,7 +150,6 @@ export function ProductForm() {
       codeInputRef.current?.focus();
 
     } catch (error) {
-      // Errors are already handled in DataContext, but we can add specific form logic here if needed.
       console.error("Falha ao salvar produto no formulário:", error)
     }
   };
@@ -172,7 +171,6 @@ export function ProductForm() {
       if (nextFieldRef?.current) {
         nextFieldRef.current.focus();
       } else {
-         // If no next field, it means we are at the submit button, so we trigger form submission.
         form.handleSubmit(onSubmit)();
       }
     }
@@ -188,7 +186,7 @@ export function ProductForm() {
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(onSubmit)(); }}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             <FormField
               control={form.control}
