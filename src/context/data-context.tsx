@@ -14,6 +14,7 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { isPast, parse } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 import type { Product, CatalogItem } from '@/types';
 import { db } from '@/lib/firebase';
@@ -257,19 +258,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
- const importCatalog = useCallback(async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
+ const importCatalog = useCallback(async (itemsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;
     let failuresCount = 0;
-    const totalCount = items.length;
+    const totalCount = itemsToImport.length;
     let processedCount = 0;
+    const importedItemsForState: CatalogItem[] = [];
 
     let batch = writeBatch(db);
     let batchCount = 0;
     
-    // This will hold the items to update the state with at the end.
-    const importedItemsForState: CatalogItem[] = [];
-
-    for (const item of items) {
+    for (const item of itemsToImport) {
+        processedCount++;
         const code = String(item.code || '').trim();
         if (!code || !item.name) {
             failuresCount++;
@@ -281,25 +281,24 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             name: String(item.name),
             category: String(item.category || ''),
         };
-        
+
         const docRef = doc(db, 'catalog', code);
         batch.set(docRef, newItemData, { merge: true });
         batchCount++;
-        
+
         importedItemsForState.push({ ...newItemData, id: code });
-        
+
         if (batchCount >= BATCH_SIZE) {
             try {
                 await batch.commit();
                 successCount += batchCount;
-                processedCount += batchCount;
-                onProgress?.({ total: totalCount, processed: processedCount });
-                batch = writeBatch(db); // Start a new batch
+                onProgress?.({ total: totalCount, processed: successCount });
+                batch = writeBatch(db);
                 batchCount = 0;
             } catch (error) {
                 console.error(`Error committing catalog batch:`, error);
                 failuresCount += batchCount;
-                batch = writeBatch(db); 
+                batch = writeBatch(db);
                 batchCount = 0;
             }
         }
@@ -309,23 +308,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         try {
             await batch.commit();
             successCount += batchCount;
-            processedCount += batchCount;
-            onProgress?.({ total: totalCount, processed: processedCount });
+            onProgress?.({ total: totalCount, processed: successCount });
         } catch (error) {
             console.error(`Error committing final catalog batch:`, error);
             failuresCount += batchCount;
         }
     }
-    
-    // Single, efficient state update at the end
+
     setCatalogState(prev => {
         const prevMap = new Map(prev.map(item => [item.code, item]));
         importedItemsForState.forEach(item => prevMap.set(item.code, item));
         return Array.from(prevMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     });
-    
+
     return { success: successCount, failures: failuresCount, total: totalCount };
-  }, []);
+}, []);
 
   const importProducts = useCallback(async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;

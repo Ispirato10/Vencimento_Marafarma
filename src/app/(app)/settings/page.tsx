@@ -133,8 +133,8 @@ export default function SettingsPage() {
             throw new Error('O arquivo está vazio.');
         }
         
+        setImportMessage(`Iniciando importação de ${json.length} itens...`);
         setImportProgress(50);
-        setImportMessage(`Encontrados ${json.length} itens. Validando cabeçalhos...`);
 
         const firstItemKeys = Object.keys(json[0] as any);
         const missingFields = requiredFields.filter(field => !firstItemKeys.includes(field as string));
@@ -142,8 +142,6 @@ export default function SettingsPage() {
         if (missingFields.length > 0) {
           throw new Error(`Arquivo inválido. Colunas faltando: ${missingFields.join(', ')}`);
         }
-        
-        setImportMessage(`Iniciando importação de ${json.length} itens...`);
         
         const onProgress = (progress: {total: number, processed: number}) => {
             const baseProgress = 50; 
