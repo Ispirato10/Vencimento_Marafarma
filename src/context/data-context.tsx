@@ -11,7 +11,6 @@ import {
   writeBatch,
   addDoc,
   updateDoc,
-  setDoc,
 } from 'firebase/firestore';
 import { isPast, parse } from 'date-fns';
 
@@ -139,18 +138,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setStorageItem('splash_image_data', image);
   }
 
-  const addProduct = async (product: Omit<Product, 'id'>) => {
+  const addProduct = useCallback(async (product: Omit<Product, 'id'>) => {
+    console.log("Attempting to add product...", product);
     try {
-      console.log("Attempting to add product to Firestore:", product);
       const docRef = await addDoc(collection(db, 'products'), product);
       const newProduct = { ...product, id: docRef.id };
       setProductsState(prev => [...prev, newProduct].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
-      console.log("Product added successfully to Firestore with ID:", docRef.id);
+      console.log("Product added successfully with ID:", docRef.id);
     } catch (error: any) {
        console.error("Error adding product to Firestore:", error);
-       throw new Error(`Falha ao salvar no Firebase: ${error.message}`);
+       toast({
+          variant: 'destructive',
+          title: 'Erro ao Salvar Produto',
+          description: `Falha ao salvar no Firebase: ${error.message}`,
+       });
+       throw error;
     }
-  };
+  }, []);
   
   const updateProduct = async (productToUpdate: Product) => {
     if (!productToUpdate.id) {
@@ -201,19 +205,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addCatalogItem = async (item: Omit<CatalogItem, 'id'>) => {
+  const addCatalogItem = useCallback(async (item: Omit<CatalogItem, 'id'>) => {
     const itemExists = catalog.some(c => c.code === item.code);
     if (itemExists) return;
 
+    console.log("Attempting to add catalog item...", item);
     try {
         const docRef = await addDoc(collection(db, 'catalog'), item);
         const newItem = { ...item, id: docRef.id };
         setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
+        console.log("Catalog item added successfully with ID:", docRef.id);
     } catch (error: any) {
         console.error("Error adding catalog item:", error);
-        throw new Error(`Falha ao salvar no catálogo do Firebase: ${error.message}`);
+        toast({
+            variant: 'destructive',
+            title: 'Erro ao Salvar no Catálogo',
+            description: `Falha ao salvar no Firebase: ${error.message}`,
+        });
+        throw error;
     }
-  }
+  }, [catalog]);
 
   const updateCatalogItem = async (itemToUpdate: CatalogItem) => {
     if (!itemToUpdate.id) {
@@ -245,81 +256,92 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const importCatalog = async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
+  const importCatalog = useCallback(async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;
     let failuresCount = 0;
+    let processedInLoop = 0;
     const totalCount = items.length;
     
     const existingCodes = new Set(catalog.map(c => c.code));
-    const validItems: Omit<CatalogItem, 'id'>[] = [];
+    const newItemsForState: CatalogItem[] = [];
+
+    let batch = writeBatch(db);
+    let batchCount = 0;
 
     for (const item of items) {
-      const code = String(item.code || '').trim();
-      if (!code || !item.name) {
-        failuresCount++;
-        continue;
-      }
-      if (existingCodes.has(code)) {
-        failuresCount++;
-        continue;
-      }
-      
-      const newItem: Omit<CatalogItem, 'id'> = {
-        code: code,
-        name: String(item.name),
-        category: String(item.category || ''),
-      };
-      validItems.push(newItem);
-      existingCodes.add(code);
-    }
-    
-    const newItemsForState: CatalogItem[] = [];
-    let processedCount = 0;
+        processedInLoop++;
+        const code = String(item.code || '').trim();
 
-    for (let i = 0; i < validItems.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        const batchItems = validItems.slice(i, i + BATCH_SIZE);
-        const batchItemsWithIds: CatalogItem[] = [];
-        
-        for (const item of batchItems) {
-            const docRef = doc(collection(db, 'catalog')); // Firestore generates ID automatically
-            batch.set(docRef, item);
-            batchItemsWithIds.push({ ...item, id: docRef.id });
+        if (!code || !item.name || existingCodes.has(code)) {
+            failuresCount++;
+            continue;
         }
-      
+
+        const newItem: Omit<CatalogItem, 'id'> = {
+            code: code,
+            name: String(item.name),
+            category: String(item.category || ''),
+        };
+        existingCodes.add(code); // Add to set to prevent duplicates within the same file
+
+        const docRef = doc(collection(db, 'catalog'));
+        batch.set(docRef, newItem);
+        newItemsForState.push({ ...newItem, id: docRef.id });
+        batchCount++;
+
+        if (batchCount === BATCH_SIZE) {
+            try {
+                await batch.commit();
+                successCount += batchCount;
+                batch = writeBatch(db); // Start a new batch
+                batchCount = 0;
+                onProgress?.({ total: totalCount, processed: processedInLoop });
+            } catch (error) {
+                console.error(`Error committing catalog batch:`, error);
+                failuresCount += batchCount;
+            }
+        }
+    }
+
+    // Commit the final batch if it has any items
+    if (batchCount > 0) {
         try {
             await batch.commit();
-            successCount += batchItems.length;
-            newItemsForState.push(...batchItemsWithIds);
+            successCount += batchCount;
+            onProgress?.({ total: totalCount, processed: processedInLoop });
         } catch (error) {
-            console.error(`Error committing catalog batch:`, error);
-            failuresCount += batchItems.length;
-        } finally {
-            processedCount += batchItems.length;
-            onProgress?.({ total: validItems.length, processed: processedCount });
+            console.error(`Error committing final catalog batch:`, error);
+            failuresCount += batchCount;
         }
     }
     
-    setCatalogState(prev => [...prev, ...newItemsForState].sort((a,b) => a.name.localeCompare(b.name)));
+    setCatalogState(prev => [...prev, ...newItemsForState].sort((a, b) => a.name.localeCompare(b.name)));
     
     return { success: successCount, failures: failuresCount, total: totalCount };
-  };
+  }, [catalog]);
 
-  const importProducts = async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
+  const importProducts = useCallback(async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;
     let failuresCount = 0;
+    let processedInLoop = 0;
     const totalCount = productsToImport.length;
+
+    const newProductsForState: Product[] = [];
     
-    const validProducts: Omit<Product, 'id'>[] = [];
-    
+    let batch = writeBatch(db);
+    let batchCount = 0;
+
     for (const [index, item] of productsToImport.entries()) {
+        processedInLoop++;
         try {
             if (!item.code || !item.name || !item.expirationDate) {
-                throw new Error(`Dados essenciais faltando na linha ${index + 2}`);
+                 failuresCount++;
+                continue;
             }
             const parsedDate = parse(String(item.expirationDate), 'dd/MM/yyyy', new Date());
             if (isNaN(parsedDate.getTime())) {
-                throw new Error(`Data inválida "${item.expirationDate}" na linha ${index + 2}.`);
+                failuresCount++;
+                continue;
             }
 
             const newProduct: Omit<Product, 'id'> = {
@@ -330,45 +352,43 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 batch: String(item.batch || ''),
                 expirationDate: parsedDate.toISOString(),
             };
-            validProducts.push(newProduct);
+
+            const docRef = doc(collection(db, 'products'));
+            batch.set(docRef, newProduct);
+            newProductsForState.push({ ...newProduct, id: docRef.id });
+            batchCount++;
+
+            if (batchCount === BATCH_SIZE) {
+                await batch.commit();
+                successCount += batchCount;
+                batch = writeBatch(db);
+                batchCount = 0;
+                onProgress?.({ total: totalCount, processed: processedInLoop });
+            }
+
         } catch (error: any) {
-            console.error(error.message);
-            toast({ variant: "destructive", title: "Erro na Validação", description: error.message, duration: 5000 });
-            failuresCount++;
+            console.error(`Error processing product at line ${index + 2}:`, error);
+            failuresCount += batchCount + 1; // Count failed item and the ones in the failed batch
+            batch = writeBatch(db); // Reset batch after an error
+            batchCount = 0;
         }
     }
-    
-    const newProductsForState: Product[] = [];
-    let processedCount = 0;
 
-    for (let i = 0; i < validProducts.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        const batchProducts = validProducts.slice(i, i + BATCH_SIZE);
-        const batchProductsWithIds: Product[] = [];
-       
-        for (const product of batchProducts) {
-            const docRef = doc(collection(db, 'products'));
-            batch.set(docRef, product);
-            batchProductsWithIds.push({ ...product, id: docRef.id });
-        }
-        
+    if (batchCount > 0) {
         try {
             await batch.commit();
-            successCount += batchProducts.length;
-            newProductsForState.push(...batchProductsWithIds);
+            successCount += batchCount;
+            onProgress?.({ total: totalCount, processed: processedInLoop });
         } catch (error) {
-             console.error(`Error committing product batch:`, error);
-            failuresCount += batchProducts.length;
-        } finally {
-            processedCount += batchProducts.length;
-            onProgress?.({ total: validProducts.length, processed: processedCount });
+            console.error('Error committing final product batch:', error);
+            failuresCount += batchCount;
         }
     }
     
     setProductsState(prev => [...prev, ...newProductsForState].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
 
     return { success: successCount, failures: failuresCount, total: totalCount };
-  };
+  }, []);
 
   return (
     <DataContext.Provider value={{ 
