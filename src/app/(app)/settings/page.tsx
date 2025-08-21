@@ -131,6 +131,7 @@ export default function SettingsPage() {
         }
         
         setImportProgress(33);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate work
         await importFunction(json);
         setImportProgress(100);
 
@@ -269,45 +270,31 @@ export default function SettingsPage() {
           )}
           {!isImporting && (
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col p-4 border rounded-lg space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                        <h3 className="font-medium">Importação</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Importe catálogo ou estoque de arquivos XLSX.
-                        </p>
-                        </div>
-                    </div>
+                <div className="flex flex-col p-4 border rounded-lg space-y-4 items-start">
+                    <h3 className="font-medium">Catálogo</h3>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => catalogImportRef.current?.click()}>
                             <FileUp className="mr-2 h-4 w-4" />
-                            Importar Catálogo
+                            Importar
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
-                            <FileUp className="mr-2 h-4 w-4" />
-                            Importar Estoque
+                        <Button variant="outline" size="sm" onClick={handleExportCatalog}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Exportar
                         </Button>
                     </div>
                 </div>
 
-                <div className="flex flex-col p-4 border rounded-lg space-y-4">
-                     <div className="flex items-center justify-between">
-                        <div>
-                        <h3 className="font-medium">Exportação</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Exporte catálogo ou estoque para arquivos XLSX.
-                        </p>
-                        </div>
-                    </div>
+                <div className="flex flex-col p-4 border rounded-lg space-y-4 items-start">
+                    <h3 className="font-medium">Estoque Completo</h3>
                     <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleExportCatalog}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Exportar Catálogo
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleExportDatabase}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Exportar Estoque
-                    </Button>
+                        <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
+                            <FileUp className="mr-2 h-4 w-4" />
+                            Importar
+                        </Button>
+                         <Button variant="outline" size="sm" onClick={handleExportDatabase}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Exportar
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -346,3 +333,5 @@ export default function SettingsPage() {
     </>
   );
 }
+
+    
