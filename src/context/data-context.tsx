@@ -1,24 +1,36 @@
 
 'use client';
 
-import { createContext, useState, ReactNode, useEffect } from 'react';
-import type { Product, CatalogItem } from '@/types';
+import { createContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
+  deleteDoc,
+  query,
+  where,
+  writeBatch,
+} from 'firebase/firestore';
 import { isPast } from 'date-fns';
+
+import type { Product, CatalogItem } from '@/types';
+import { db } from '@/lib/firebase';
 import { toast } from '@/hooks/use-toast';
 import { initialCatalog, initialProducts, initialReportAuthor } from '@/lib/data';
 
 interface DataContextType {
   products: Product[];
   setProducts: (products: Product[]) => void;
-  addProduct: (product: Product) => void;
-  updateProduct: (productToUpdate: Product) => void;
-  deleteProduct: (productCode: string, productBatch: string) => void;
-  deleteExpiredProducts: () => void;
+  addProduct: (product: Product) => Promise<void>;
+  updateProduct: (productToUpdate: Product) => Promise<void>;
+  deleteProduct: (productCode: string, productBatch: string) => Promise<void>;
+  deleteExpiredProducts: () => Promise<void>;
   catalog: CatalogItem[];
   setCatalog: (catalog: CatalogItem[]) => void;
-  addCatalogItem: (item: CatalogItem) => void;
-  updateCatalogItem: (itemToUpdate: CatalogItem) => void;
-  deleteCatalogItem: (itemCode: string) => void;
+  addCatalogItem: (item: CatalogItem) => Promise<void>;
+  updateCatalogItem: (itemToUpdate: CatalogItem) => Promise<void>;
+  deleteCatalogItem: (itemCode: string) => Promise<void>;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
   splashImage: string | null;
@@ -29,15 +41,15 @@ interface DataContextType {
 export const DataContext = createContext<DataContextType>({
   products: [],
   setProducts: () => {},
-  addProduct: () => {},
-  updateProduct: () => {},
-  deleteProduct: () => {},
-  deleteExpiredProducts: () => {},
+  addProduct: async () => {},
+  updateProduct: async () => {},
+  deleteProduct: async () => {},
+  deleteExpiredProducts: async () => {},
   catalog: [],
   setCatalog: () => {},
-  addCatalogItem: () => {},
-  updateCatalogItem: () => {},
-  deleteCatalogItem: () => {},
+  addCatalogItem: async () => {},
+  updateCatalogItem: async () => {},
+  deleteCatalogItem: async () => {},
   reportAuthor: null,
   setReportAuthor: () => {},
   splashImage: null,
@@ -45,18 +57,11 @@ export const DataContext = createContext<DataContextType>({
   loading: true,
 });
 
-// Helper function to safely get item from localStorage
+// Helper function to safely get item from localStorage (for non-Firebase data)
 const getStorageItem = <T,>(key: string, fallback: T): T => {
-    if (typeof window === 'undefined') {
-        return fallback;
-    }
+    if (typeof window === 'undefined') return fallback;
     try {
         const item = window.localStorage.getItem(key);
-        if (item === null || item === 'null' || item === 'undefined') return fallback;
-        // For initial data, if the storage is empty, use the seed data.
-        if (item === '[]' && (key === 'catalog_data' || key === 'products_data')) {
-            return fallback;
-        }
         return item ? JSON.parse(item) : fallback;
     } catch (error) {
         console.warn(`Error reading localStorage key "${key}":`, error);
@@ -66,59 +71,78 @@ const getStorageItem = <T,>(key: string, fallback: T): T => {
 
 // Helper function to safely set item in localStorage
 const setStorageItem = (key: string, value: any) => {
-    if (typeof window === 'undefined') {
-        return false;
-    }
+    if (typeof window === 'undefined') return;
     try {
         window.localStorage.setItem(key, JSON.stringify(value));
-        return true;
-    } catch (error: any) {
-        // Check if the error is a quota exceeded error
-        if (error.name === 'QuotaExceededError' || (error.code && (error.code === 22 || error.code === 1014))) {
-             toast({
-                variant: 'destructive',
-                title: 'Erro de Armazenamento',
-                description: `Não foi possível salvar os dados. O armazenamento local do navegador está cheio. As alterações não serão mantidas se a página for atualizada.`,
-                duration: 10000,
-            });
-        } else {
-            console.error(`Error saving localStorage key "${key}":`, error);
-        }
-        return false;
+    } catch (error) {
+        console.error(`Error saving localStorage key "${key}":`, error);
     }
 };
-
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProductsState] = useState<Product[]>([]);
   const [catalog, setCatalogState] = useState<CatalogItem[]>([]);
-  const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(initialReportAuthor);
   const [splashImage, setSplashImageState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load all data from localStorage on initial mount
-  useEffect(() => {
+  // Fetch all data from Firestore on initial mount
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const storedProducts = getStorageItem('products_data', initialProducts);
-    const storedCatalog = getStorageItem('catalog_data', initialCatalog);
-    const storedReportAuthor = getStorageItem('report_author_data', initialReportAuthor);
-    const storedSplashImage = getStorageItem('splash_image_data', null);
+    try {
+      // Check if Firebase is configured
+      if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+        toast({
+          variant: 'destructive',
+          title: 'Configuração do Firebase ausente',
+          description: 'As credenciais do Firebase não foram encontradas. O aplicativo usará dados de exemplo.',
+          duration: 10000,
+        });
+        setCatalogState(initialCatalog);
+        setProductsState(initialProducts);
+        return;
+      }
 
-    setProductsState(storedProducts);
-    setCatalogState(storedCatalog);
-    setReportAuthorState(storedReportAuthor);
-    setSplashImageState(storedSplashImage);
-    setLoading(false);
+      const catalogQuery = query(collection(db, 'catalog'));
+      const catalogSnapshot = await getDocs(catalogQuery);
+      const catalogData = catalogSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CatalogItem));
+      setCatalogState(catalogData);
+
+      const productsQuery = query(collection(db, 'products'));
+      const productsSnapshot = await getDocs(productsQuery);
+      const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setProductsState(productsData);
+
+    } catch (error) {
+      console.error("Erro ao buscar dados do Firebase:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro de Conexão',
+        description: 'Não foi possível conectar ao Firebase. Verifique suas credenciais e conexão com a internet.',
+      });
+      // Fallback to initial data on error
+      setCatalogState(initialCatalog);
+      setProductsState(initialProducts);
+    } finally {
+      // Load non-firestore data from localStorage
+      setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
+      setSplashImageState(getStorageItem('splash_image_data', null));
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const setProducts = (newProducts: Product[]) => {
+    // This is now mainly for local state updates, persistence is handled by specific functions
     setProductsState(newProducts);
-    setStorageItem('products_data', newProducts);
   }
 
   const setCatalog = (newCatalog: CatalogItem[]) => {
+    // This is now mainly for local state updates, persistence is handled by specific functions
     setCatalogState(newCatalog);
-    setStorageItem('catalog_data', newCatalog);
   }
   
   const setReportAuthor = (author: string) => {
@@ -131,44 +155,99 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setStorageItem('splash_image_data', image);
   }
 
-  const addProduct = (product: Product) => {
-    const updatedProducts = [...products, product];
-    setProducts(updatedProducts);
+  const addProduct = async (product: Product) => {
+    try {
+      const productRef = doc(collection(db, 'products'));
+      const newProduct = { ...product, id: productRef.id };
+      await setDoc(productRef, newProduct);
+      setProductsState(prev => [...prev, newProduct]);
+    } catch (error) {
+       console.error("Erro ao adicionar produto:", error);
+       toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o produto.' });
+    }
   };
   
-  const updateProduct = (productToUpdate: Product) => {
-    const updatedProducts = products.map((p) => (p.code === productToUpdate.code && p.batch === productToUpdate.batch ? productToUpdate : p));
-    setProducts(updatedProducts);
+  const updateProduct = async (productToUpdate: Product) => {
+    if (!productToUpdate.id) return;
+    try {
+      const productRef = doc(db, 'products', productToUpdate.id);
+      await setDoc(productRef, productToUpdate, { merge: true });
+      setProductsState(prev => prev.map(p => p.id === productToUpdate.id ? productToUpdate : p));
+    } catch (error) {
+      console.error("Erro ao atualizar produto:", error);
+      toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: 'Não foi possível atualizar o produto.' });
+    }
   };
 
-  const deleteProduct = (productCode: string, productBatch: string) => {
-    const updatedProducts = products.filter((p) => !(p.code === productCode && p.batch === productBatch));
-    setProducts(updatedProducts);
+  const deleteProduct = async (productCode: string, productBatch: string) => {
+    const productToDelete = products.find(p => p.code === productCode && p.batch === productBatch);
+    if (!productToDelete || !productToDelete.id) return;
+    try {
+      await deleteDoc(doc(db, 'products', productToDelete.id));
+      setProductsState(prev => prev.filter(p => p.id !== productToDelete.id));
+    } catch (error) {
+      console.error("Erro ao excluir produto:", error);
+      toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível excluir o produto.' });
+    }
+  };
+  
+  const deleteExpiredProducts = async () => {
+    const expiredProducts = products.filter(p => isPast(new Date(p.expirationDate)));
+    if (expiredProducts.length === 0) return;
+
+    try {
+      const batch = writeBatch(db);
+      expiredProducts.forEach(product => {
+        if(product.id) {
+          batch.delete(doc(db, 'products', product.id));
+        }
+      });
+      await batch.commit();
+      setProductsState(prev => prev.filter(p => !isPast(new Date(p.expirationDate))));
+    } catch (error) {
+      console.error("Erro ao excluir produtos vencidos:", error);
+      toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível excluir os produtos vencidos.' });
+    }
   };
 
-  const deleteExpiredProducts = () => {
-    const unexpiredProducts = products.filter(p => !isPast(new Date(p.expirationDate)));
-    setProducts(unexpiredProducts);
-  };
-
-  const addCatalogItem = (item: CatalogItem) => {
+  const addCatalogItem = async (item: CatalogItem) => {
     const itemExists = catalog.some(c => c.code === item.code);
     if (!itemExists) {
-        const updatedCatalog = [...catalog, item];
-        setCatalog(updatedCatalog);
+        try {
+            const itemRef = doc(collection(db, 'catalog'));
+            const newItem = { ...item, id: itemRef.id };
+            await setDoc(itemRef, newItem);
+            setCatalogState(prev => [...prev, newItem]);
+        } catch (error) {
+            console.error("Erro ao adicionar item ao catálogo:", error);
+            toast({ variant: 'destructive', title: 'Erro ao Salvar Catálogo' });
+        }
     }
   }
 
-  const updateCatalogItem = (itemToUpdate: CatalogItem) => {
-    const updatedCatalog = catalog.map((item) => (item.code === itemToUpdate.code ? itemToUpdate : item));
-    setCatalog(updatedCatalog);
+  const updateCatalogItem = async (itemToUpdate: CatalogItem) => {
+    if (!itemToUpdate.id) return;
+    try {
+      const itemRef = doc(db, 'catalog', itemToUpdate.id);
+      await setDoc(itemRef, itemToUpdate, { merge: true });
+      setCatalogState(prev => prev.map(item => item.id === itemToUpdate.id ? itemToUpdate : item));
+    } catch (error) {
+        console.error("Erro ao atualizar item do catálogo:", error);
+        toast({ variant: 'destructive', title: 'Erro ao Atualizar Catálogo' });
+    }
   }
 
-  const deleteCatalogItem = (itemCode: string) => {
-    const updatedCatalog = catalog.filter((item) => item.code !== itemCode);
-    setCatalog(updatedCatalog);
+  const deleteCatalogItem = async (itemCode: string) => {
+    const itemToDelete = catalog.find(c => c.code === itemCode);
+    if (!itemToDelete || !itemToDelete.id) return;
+    try {
+      await deleteDoc(doc(db, 'catalog', itemToDelete.id));
+      setCatalogState(prev => prev.filter(item => item.code !== itemCode));
+    } catch(error) {
+        console.error("Erro ao excluir item do catálogo:", error);
+        toast({ variant: 'destructive', title: 'Erro ao Excluir do Catálogo' });
+    }
   };
-  
 
   return (
     <DataContext.Provider value={{ 

@@ -1,3 +1,4 @@
+
 export type Product = {
   id?: string; // Firestore document ID
   code: string;
