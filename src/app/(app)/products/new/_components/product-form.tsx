@@ -37,8 +37,13 @@ const productFormSchema = z.object({
   category: z.string().optional(),
   batch: z.string().optional(),
   expirationDate: z.string().refine((val) => {
-    const parsedDate = parse(val, 'dd/MM/yyyy', new Date());
-    return !isNaN(parsedDate.getTime()) && val.length === 10;
+    try {
+      if (val.length !== 10) return false;
+      const parsedDate = parse(val, 'dd/MM/yyyy', new Date());
+      return !isNaN(parsedDate.getTime());
+    } catch {
+      return false;
+    }
   }, {
     message: 'Data inválida. Use o formato dd/mm/aaaa.',
   }),
@@ -48,7 +53,8 @@ type ProductFormValues = z.infer<typeof productFormSchema>;
 
 export function ProductForm() {
   const { toast } = useToast();
-  const [isFetching, setIsFetching] = useState(false);
+  const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isNewCatalogItem, setIsNewCatalogItem] = useState(false);
   const { catalog, addProduct, addCatalogItem } = useContext(DataContext);
 
@@ -82,10 +88,11 @@ export function ProductForm() {
     const code = e.target.value;
     if (!code) return;
 
-    setIsFetching(true);
+    setIsFetchingCatalog(true);
+    // Simulate network delay for user feedback
     await new Promise((resolve) => setTimeout(resolve, 300));
     const catalogItem = catalog.find((item) => item.code === code);
-    setIsFetching(false);
+    setIsFetchingCatalog(false);
 
     if (catalogItem) {
       form.setValue('name', catalogItem.name, { shouldValidate: true });
@@ -95,7 +102,7 @@ export function ProductForm() {
         title: 'Produto encontrado!',
         description: `Dados de "${catalogItem.name}" preenchidos.`,
       });
-       quantityInputRef.current?.focus();
+      quantityInputRef.current?.focus();
     } else {
        toast({
         variant: 'default',
@@ -108,6 +115,7 @@ export function ProductForm() {
   };
   
   const onSubmit = async (data: ProductFormValues) => {
+    setIsSaving(true);
     try {
       const parsedDate = parse(data.expirationDate, 'dd/MM/yyyy', new Date());
       
@@ -117,7 +125,7 @@ export function ProductForm() {
         batch: data.batch || '',
         expirationDate: parsedDate.toISOString() 
       };
-
+      
       await addProduct(newProduct as Product);
       
       let toastDescription = `O produto "${data.name}" foi adicionado com sucesso.`;
@@ -150,7 +158,14 @@ export function ProductForm() {
       codeInputRef.current?.focus();
 
     } catch (error) {
-      console.error("Falha ao salvar produto no formulário:", error)
+      console.error("Falha ao salvar produto no formulário:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Salvar',
+        description: 'Não foi possível salvar o produto. Verifique o console para mais detalhes.'
+      });
+    } finally {
+        setIsSaving(false);
     }
   };
   
@@ -166,15 +181,16 @@ export function ProductForm() {
   };
   
   const handleKeyDown = (e: React.KeyboardEvent, nextFieldRef?: React.RefObject<HTMLElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (nextFieldRef?.current) {
-        nextFieldRef.current.focus();
-      } else {
-        form.handleSubmit(onSubmit)();
-      }
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (nextFieldRef?.current) {
+            nextFieldRef.current.focus();
+        } else {
+            // Se não houver próximo campo, submeta o formulário
+            submitButtonRef.current?.click();
+        }
     }
-  };
+};
 
 
   return (
@@ -203,7 +219,7 @@ export function ProductForm() {
                         onBlur={handleCodeBlur}
                         onKeyDown={(e) => handleKeyDown(e, nameInputRef)}
                       />
-                      {isFetching && (
+                      {isFetchingCatalog && (
                         <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
                       )}
                     </div>
@@ -313,8 +329,8 @@ export function ProductForm() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting} ref={submitButtonRef}>
-              {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={isSaving} ref={submitButtonRef}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar Produto
             </Button>
           </CardFooter>
@@ -323,3 +339,5 @@ export function ProductForm() {
     </Card>
   );
 }
+
+    
