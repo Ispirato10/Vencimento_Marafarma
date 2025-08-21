@@ -11,8 +11,7 @@ import {
   query,
   writeBatch,
 } from 'firebase/firestore';
-import { isPast } from 'date-fns';
-import { parse as dateParse } from 'date-fns';
+import { isPast, parse as dateParse } from 'date-fns';
 
 import type { Product, CatalogItem } from '@/types';
 import { db } from '@/lib/firebase';
@@ -239,24 +238,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const existingCodes = new Set(catalog.map(c => c.code));
     const newItemsToCommit: CatalogItem[] = [];
 
-    items.forEach(item => {
-      // Basic validation
-      if (!item.code || !item.name) return;
-      if (!existingCodes.has(item.code)) {
-        const docRef = doc(collection(db, 'catalog'));
-        const newItem: CatalogItem = {
-          id: docRef.id,
-          code: String(item.code),
-          name: String(item.name),
-          category: String(item.category || ''),
-        };
-        newItemsToCommit.push(newItem);
-        existingCodes.add(item.code);
-      }
-    });
+    for (const item of items) {
+      if (!item.code || !item.name) continue;
+      if (existingCodes.has(item.code)) continue;
+      
+      const docRef = doc(collection(db, 'catalog'));
+      newItemsToCommit.push({
+        id: docRef.id,
+        code: String(item.code),
+        name: String(item.name),
+        category: String(item.category || ''),
+      });
+      existingCodes.add(item.code);
+    }
     
     if (newItemsToCommit.length === 0) {
-      onProgress?.({ total: 0, processed: 0 });
+      onProgress?.({ total: items.length, processed: items.length });
       return;
     }
 
@@ -264,10 +261,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     for (let i = 0; i < newItemsToCommit.length; i += BATCH_SIZE) {
       const batch = writeBatch(db);
       const batchItems = newItemsToCommit.slice(i, i + BATCH_SIZE);
+      
       batchItems.forEach(item => {
         const itemRef = doc(db, 'catalog', item.id!);
         batch.set(itemRef, item);
       });
+
       await batch.commit();
       processedCount += batchItems.length;
       onProgress?.({ total: newItemsToCommit.length, processed: processedCount });
@@ -277,21 +276,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const importProducts = async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
-    let processedData: Product[];
+    const newProductsToCommit: Product[] = [];
+    
     try {
-        processedData = productsToImport.map((item, index) => {
-            if (!item.expirationDate || typeof item.expirationDate !== 'string') {
-                throw new Error(`Data de vencimento inválida ou ausente para o produto na linha ${index + 2}`);
+        for (let i = 0; i < productsToImport.length; i++) {
+            const item = productsToImport[i];
+            if (!item.code || !item.name || !item.expirationDate) {
+                 console.warn(`Item na linha ${i + 2} ignorado por falta de dados essenciais.`);
+                 continue;
             }
-            if (!item.code || !item.name) {
-                throw new Error(`Código ou nome ausente para o produto na linha ${index + 2}`);
-            }
+            
             const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
             if (isNaN(parsedDate.getTime())) {
-                throw new Error(`Formato de data inválido "${item.expirationDate}" para o produto na linha ${index + 2}. Use DD/MM/AAAA.`);
+                throw new Error(`Data inválida na linha ${i + 2}: "${item.expirationDate}". Use o formato DD/MM/AAAA.`);
             }
+
             const docRef = doc(collection(db, 'products'));
-            return {
+            newProductsToCommit.push({
                 id: docRef.id,
                 code: String(item.code),
                 name: String(item.name),
@@ -299,17 +300,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 category: String(item.category || ''),
                 batch: String(item.batch || ''),
                 expirationDate: parsedDate.toISOString(),
-            };
-        });
+            });
+        }
     } catch (error) {
-        // This will propagate the error to the calling function in settings page
-        throw error;
+        throw error; // Lança o erro para ser pego na página de configurações
     }
-    
-    const newProductsToCommit: Product[] = processedData;
 
     if (newProductsToCommit.length === 0) {
-        onProgress?.({ total: 0, processed: 0 });
+        onProgress?.({ total: productsToImport.length, processed: productsToImport.length });
         return;
     }
 
@@ -317,10 +315,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     for (let i = 0; i < newProductsToCommit.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
         const batchProducts = newProductsToCommit.slice(i, i + BATCH_SIZE);
+
         batchProducts.forEach(product => {
             const docRef = doc(db, 'products', product.id!);
             batch.set(docRef, product);
         });
+        
         await batch.commit();
         processedCount += batchProducts.length;
         onProgress?.({ total: newProductsToCommit.length, processed: processedCount });
@@ -354,3 +354,5 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     </DataContext.Provider>
   );
 };
+
+    
