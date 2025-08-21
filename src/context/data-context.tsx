@@ -11,7 +11,8 @@ import {
   query,
   writeBatch,
 } from 'firebase/firestore';
-import { isPast, parse as dateParse } from 'date-fns';
+import { isPast } from 'date-fns';
+import { parse as dateParse } from 'date-fns';
 
 import type { Product, CatalogItem } from '@/types';
 import { db } from '@/lib/firebase';
