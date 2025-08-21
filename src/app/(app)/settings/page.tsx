@@ -1,11 +1,9 @@
-
 "use client";
 
 import { useRef, useContext, useState } from 'react';
 import { FileUp, FileDown, Trash2, ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { isPast } from 'date-fns';
-import { parse as dateParse } from 'date-fns';
+import { isPast, parse as dateParse } from 'date-fns';
 
 
 import { Button } from '@/components/ui/button';
@@ -45,6 +43,7 @@ export default function SettingsPage() {
   
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [importMessage, setImportMessage] = useState('');
   const [isDeleteExpiredDialogOpen, setIsDeleteExpiredDialogOpen] = useState(false);
   
   const expiredProductsCount = products.filter(p => isPast(new Date(p.expirationDate))).length;
@@ -112,10 +111,12 @@ export default function SettingsPage() {
   ) => {
     setIsImporting(true);
     setImportProgress(0);
+    setImportMessage('Lendo arquivo...');
 
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        setImportProgress(25);
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -135,10 +136,13 @@ export default function SettingsPage() {
           }
         }
         
-        setImportProgress(33);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate work
+        setImportProgress(50);
+        setImportMessage(`Importando ${json.length} itens...`);
+        
         await importFunction(json);
+        
         setImportProgress(100);
+        setImportMessage('Importação Concluída!');
 
         toast({
           title: 'Importação Concluída!',
@@ -146,13 +150,17 @@ export default function SettingsPage() {
           variant: 'accent',
         });
       } catch (error: any) {
+        setImportMessage('Erro na importação');
         toast({
           variant: 'destructive',
           title: 'Erro na Importação',
           description: error.message || 'Ocorreu um erro ao processar o arquivo.',
         });
       } finally {
-        setTimeout(() => setIsImporting(false), 1000);
+        setTimeout(() => {
+          setIsImporting(false);
+          setImportMessage('');
+        }, 2000);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -281,7 +289,7 @@ export default function SettingsPage() {
            {isImporting && (
             <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                    <Label>Importando dados...</Label>
+                    <Label>{importMessage}</Label>
                     <span className="text-sm text-muted-foreground">{importProgress}%</span>
                 </div>
                 <Progress value={importProgress} />
@@ -379,5 +387,3 @@ const format = (date: Date, formatStr: string) => {
     }
     return date.toISOString(); // fallback
 };
-
-    
