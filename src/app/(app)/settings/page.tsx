@@ -7,7 +7,6 @@ import * as XLSX from 'xlsx';
 import { isPast } from 'date-fns';
 import { getDocs, query, collection, limit } from 'firebase/firestore';
 
-
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -111,7 +110,7 @@ export default function SettingsPage() {
    const processImportFile = async <T,>(
     file: File,
     requiredFields: string[],
-    importFunction: (data: T[], onProgress: (progress: {total: number, processed: number}) => void) => Promise<void>
+    importFunction: (data: T[], onProgress: (progress: {total: number, processed: number}) => void) => Promise<any>
   ) => {
     setIsImporting(true);
     setImportProgress(0);
@@ -120,10 +119,6 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 200)); 
-        setImportProgress(25);
-        setImportMessage('Processando arquivo...');
-        
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -138,7 +133,6 @@ export default function SettingsPage() {
             throw new Error('O arquivo está vazio.');
         }
         
-        await new Promise(resolve => setTimeout(resolve, 200));
         setImportProgress(50);
         setImportMessage(`Encontrados ${json.length} itens. Validando cabeçalhos...`);
 
@@ -149,7 +143,6 @@ export default function SettingsPage() {
           throw new Error(`Arquivo inválido. Colunas faltando: ${missingFields.join(', ')}`);
         }
         
-        await new Promise(resolve => setTimeout(resolve, 200));
         setImportMessage(`Iniciando importação de ${json.length} itens...`);
         
         const onProgress = (progress: {total: number, processed: number}) => {
@@ -159,16 +152,17 @@ export default function SettingsPage() {
             setImportMessage(`Salvando ${progress.processed} de ${progress.total} itens...`);
         };
         
-        await importFunction(json as T[], onProgress);
+        const result = await importFunction(json as T[], onProgress);
         
         setImportProgress(100);
-        setImportMessage('Importação Concluída!');
+        setImportMessage(`Importação Concluída! ${result.success} de ${result.total} itens importados.`);
 
         toast({
           title: 'Importação Concluída!',
-          description: `${json.length} itens foram importados com sucesso.`,
-          variant: 'accent',
+          description: `${result.success} de ${result.total} itens foram importados. Falhas: ${result.failures}`,
+          variant: result.failures > 0 ? 'destructive' : 'accent',
         });
+
       } catch (error: any) {
         setImportMessage('Erro na importação');
         setImportProgress(0);
@@ -182,7 +176,7 @@ export default function SettingsPage() {
           setIsImporting(false);
           setImportMessage('');
           setImportProgress(0);
-        }, 3000);
+        }, 5000);
       }
     };
     reader.readAsArrayBuffer(file);
