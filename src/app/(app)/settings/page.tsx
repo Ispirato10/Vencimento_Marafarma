@@ -2,17 +2,15 @@
 "use client";
 
 import { useRef, useContext, useState } from 'react';
-import { FileUp, FileDown, Trash2, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { FileUp, FileDown, Trash2, ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parse, isPast } from 'date-fns';
-import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -24,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { CatalogItem, Product } from '@/types';
 import { DataContext } from '@/context/data-context';
 import { DeleteExpiredDialog } from './_components/delete-expired-dialog';
+import { Separator } from '@/components/ui/separator';
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -106,7 +105,7 @@ export default function SettingsPage() {
   
    const processImportFile = async <T,>(
     file: File,
-    requiredFields: (keyof T)[],
+    requiredFields: string[],
     importFunction: (data: T[]) => Promise<void>
   ) => {
     setIsImporting(true);
@@ -156,7 +155,7 @@ export default function SettingsPage() {
   const handleImportCatalog = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const requiredFields: (keyof CatalogItem)[] = ['code', 'name', 'category'];
+    const requiredFields = ['code', 'name', 'category'];
     processImportFile<CatalogItem>(file, requiredFields, importCatalog);
     if(event.target) event.target.value = '';
   };
@@ -164,7 +163,7 @@ export default function SettingsPage() {
   const handleImportDatabase = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const requiredFields: (keyof Product)[] = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
+    const requiredFields = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
     const importFunction = async (data: any[]) => {
       const parsedData = data.map(item => ({
         ...item,
@@ -172,7 +171,7 @@ export default function SettingsPage() {
       }));
       await importProducts(parsedData);
     };
-    processImportFile<Product>(file, requiredFields, importFunction);
+    processImportFile<Product>(file, requiredFields, importFunction as any);
     if(event.target) event.target.value = '';
   };
 
@@ -261,7 +260,7 @@ export default function SettingsPage() {
             Importe ou exporte dados do sistema e limpe os produtos vencidos.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
            {isImporting && (
             <div className="space-y-2">
               <Label>Importando dados...</Label>
@@ -269,36 +268,53 @@ export default function SettingsPage() {
             </div>
           )}
           {!isImporting && (
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col p-4 border rounded-lg space-y-4 items-start">
-                    <h3 className="font-medium">Catálogo</h3>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => catalogImportRef.current?.click()}>
-                            <FileUp className="mr-2 h-4 w-4" />
-                            Importar
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={handleExportCatalog}>
-                            <FileDown className="mr-2 h-4 w-4" />
-                            Exportar
-                        </Button>
-                    </div>
-                </div>
+            <div className="space-y-6">
+              {/* Estoque Completo */}
+              <div className="flex flex-col p-4 border rounded-lg space-y-4">
+                  <h3 className="font-semibold text-lg">Estoque Completo</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Importe ou exporte toda a sua base de produtos em estoque. Ideal para migração ou backup completo.
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
+                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">quantity</code>, <code className="bg-muted px-1 py-0.5 rounded">category</code>, <code className="bg-muted px-1 py-0.5 rounded">batch</code>, <code className="bg-muted px-1 py-0.5 rounded">expirationDate</code>. A data deve estar no formato <code className="bg-muted px-1 py-0.5 rounded">AAAA-MM-DD</code>.
+                  </p>
+                  <div className="flex gap-2 self-start">
+                      <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
+                          <FileUp className="mr-2 h-4 w-4" />
+                          Importar Estoque
+                      </Button>
+                       <Button variant="outline" size="sm" onClick={handleExportDatabase}>
+                          <FileDown className="mr-2 h-4 w-4" />
+                          Exportar Estoque
+                      </Button>
+                  </div>
+              </div>
 
-                <div className="flex flex-col p-4 border rounded-lg space-y-4 items-start">
-                    <h3 className="font-medium">Estoque Completo</h3>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
-                            <FileUp className="mr-2 h-4 w-4" />
-                            Importar
-                        </Button>
-                         <Button variant="outline" size="sm" onClick={handleExportDatabase}>
-                            <FileDown className="mr-2 h-4 w-4" />
-                            Exportar
-                        </Button>
-                    </div>
-                </div>
+              {/* Catálogo */}
+               <div className="flex flex-col p-4 border rounded-lg space-y-4">
+                  <h3 className="font-semibold text-lg">Catálogo de Produtos</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Importe ou exporte apenas seu catálogo de produtos (código, nome, categoria), sem informações de lote ou quantidade.
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
+                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">category</code>.
+                  </p>
+                  <div className="flex gap-2 self-start">
+                      <Button variant="outline" size="sm" onClick={() => catalogImportRef.current?.click()}>
+                          <FileUp className="mr-2 h-4 w-4" />
+                          Importar Catálogo
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleExportCatalog}>
+                          <FileDown className="mr-2 h-4 w-4" />
+                          Exportar Catálogo
+                      </Button>
+                  </div>
+              </div>
             </div>
           )}
+           <Separator />
            <div className="flex flex-col p-4 border rounded-lg space-y-4 bg-destructive/10 border-destructive/20">
             <div className="flex items-center justify-between">
               <div>
@@ -333,5 +349,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-    
