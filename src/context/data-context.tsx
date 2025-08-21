@@ -139,23 +139,24 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setStorageItem('splash_image_data', image);
   }
 
-  const addProduct = useCallback(async (product: Omit<Product, 'id'>) => {
+ const addProduct = useCallback(async (product: Omit<Product, 'id'>) => {
     console.log("Attempting to add product...", product);
     try {
-      const docRef = await addDoc(collection(db, 'products'), product);
-      const newProduct = { ...product, id: docRef.id };
-      setProductsState(prev => [...prev, newProduct].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
-      console.log("Product added successfully with ID:", docRef.id);
+        const docRef = await addDoc(collection(db, 'products'), product);
+        const newProduct = { ...product, id: docRef.id };
+        setProductsState(prev => [...prev, newProduct].sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
+        console.log("Product added successfully with ID:", docRef.id);
+        return Promise.resolve(); // Explicitly return a resolved promise
     } catch (error: any) {
-       console.error("Error adding product to Firestore:", error);
-       toast({
-          variant: 'destructive',
-          title: 'Erro ao Salvar Produto',
-          description: `Falha ao salvar no Firebase: ${error.message}`,
-       });
-       throw error;
+        console.error("Error adding product to Firestore:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Erro ao Salvar Produto',
+            description: `Falha ao salvar no Firebase: ${error.message}`,
+        });
+        return Promise.reject(error); // Return a rejected promise
     }
-  }, []);
+}, []);
   
   const updateProduct = async (productToUpdate: Product) => {
     if (!productToUpdate.id) {
@@ -208,14 +209,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addCatalogItem = useCallback(async (item: Omit<CatalogItem, 'id'>) => {
     const itemExists = catalog.some(c => c.code === item.code);
-    if (itemExists) return;
+    if (itemExists) return Promise.resolve();
 
     console.log("Attempting to add catalog item...", item);
     try {
-        const docRef = await addDoc(collection(db, 'catalog'), item);
-        const newItem = { ...item, id: docRef.id };
+        // Use setDoc with the item's code as the ID
+        await setDoc(doc(db, 'catalog', item.code), item);
+        const newItem = { ...item, id: item.code };
         setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
-        console.log("Catalog item added successfully with ID:", docRef.id);
+        console.log("Catalog item added successfully with ID:", item.code);
+        return Promise.resolve();
     } catch (error: any) {
         console.error("Error adding catalog item:", error);
         toast({
@@ -223,7 +226,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             title: 'Erro ao Salvar no Catálogo',
             description: `Falha ao salvar no Firebase: ${error.message}`,
         });
-        throw error;
+        return Promise.reject(error);
     }
   }, [catalog]);
 
@@ -257,7 +260,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const importCatalog = useCallback(async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
+ const importCatalog = useCallback(async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;
     let failuresCount = 0;
     const totalCount = items.length;
@@ -281,11 +284,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             name: String(item.name),
             category: String(item.category || ''),
         };
-
+        
         const docRef = doc(db, 'catalog', code);
-        batch.set(docRef, newItemData);
+        batch.set(docRef, newItemData, { merge: true }); // Use merge:true to upsert
         batchCount++;
         
+        // This is for the local state update, not a read from DB
         const existingIndex = localNewItems.findIndex(i => i.code === code);
         if (existingIndex > -1) {
             localNewItems[existingIndex] = { ...newItemData, id: code };
@@ -293,17 +297,17 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             localNewItems.push({ ...newItemData, id: code });
         }
         
-        if (batchCount === BATCH_SIZE) {
+        if (batchCount >= BATCH_SIZE) {
             try {
                 await batch.commit();
                 successCount += batchCount;
-                batch = writeBatch(db);
+                batch = writeBatch(db); // Start a new batch
                 batchCount = 0;
                 onProgress?.({ total: totalCount, processed: processedInLoop });
             } catch (error) {
                 console.error(`Error committing catalog batch:`, error);
                 failuresCount += batchCount;
-                batch = writeBatch(db);
+                batch = writeBatch(db); // Start a new batch even if the last one failed
                 batchCount = 0;
             }
         }
@@ -320,6 +324,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
     }
     
+    // Update local state after all batches are committed
     setCatalogState(prev => {
         const prevMap = new Map(prev.map(item => [item.code, item]));
         localNewItems.forEach(item => prevMap.set(item.code, item));
@@ -421,5 +426,3 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     </DataContext.Provider>
   );
 };
-
-    
