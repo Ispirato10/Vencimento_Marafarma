@@ -11,6 +11,7 @@ import {
   writeBatch,
   addDoc,
   updateDoc,
+  setDoc,
 } from 'firebase/firestore';
 import { isPast, parse } from 'date-fns';
 
@@ -259,51 +260,55 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const importCatalog = useCallback(async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;
     let failuresCount = 0;
-    let processedInLoop = 0;
     const totalCount = items.length;
-    
-    const existingCodes = new Set(catalog.map(c => c.code));
-    const newItemsForState: CatalogItem[] = [];
+    let processedInLoop = 0;
 
     let batch = writeBatch(db);
     let batchCount = 0;
+    const localNewItems: CatalogItem[] = [];
 
     for (const item of items) {
         processedInLoop++;
         const code = String(item.code || '').trim();
 
-        if (!code || !item.name || existingCodes.has(code)) {
+        if (!code || !item.name) {
             failuresCount++;
             continue;
         }
 
-        const newItem: Omit<CatalogItem, 'id'> = {
+        const newItemData: Omit<CatalogItem, 'id'> = {
             code: code,
             name: String(item.name),
             category: String(item.category || ''),
         };
-        existingCodes.add(code); // Add to set to prevent duplicates within the same file
 
-        const docRef = doc(collection(db, 'catalog'));
-        batch.set(docRef, newItem);
-        newItemsForState.push({ ...newItem, id: docRef.id });
+        const docRef = doc(db, 'catalog', code);
+        batch.set(docRef, newItemData);
         batchCount++;
-
+        
+        const existingIndex = localNewItems.findIndex(i => i.code === code);
+        if (existingIndex > -1) {
+            localNewItems[existingIndex] = { ...newItemData, id: code };
+        } else {
+            localNewItems.push({ ...newItemData, id: code });
+        }
+        
         if (batchCount === BATCH_SIZE) {
             try {
                 await batch.commit();
                 successCount += batchCount;
-                batch = writeBatch(db); // Start a new batch
+                batch = writeBatch(db);
                 batchCount = 0;
                 onProgress?.({ total: totalCount, processed: processedInLoop });
             } catch (error) {
                 console.error(`Error committing catalog batch:`, error);
                 failuresCount += batchCount;
+                batch = writeBatch(db);
+                batchCount = 0;
             }
         }
     }
 
-    // Commit the final batch if it has any items
     if (batchCount > 0) {
         try {
             await batch.commit();
@@ -315,27 +320,30 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
     }
     
-    setCatalogState(prev => [...prev, ...newItemsForState].sort((a, b) => a.name.localeCompare(b.name)));
+    setCatalogState(prev => {
+        const prevMap = new Map(prev.map(item => [item.code, item]));
+        localNewItems.forEach(item => prevMap.set(item.code, item));
+        return Array.from(prevMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    });
     
     return { success: successCount, failures: failuresCount, total: totalCount };
-  }, [catalog]);
+  }, []);
 
   const importProducts = useCallback(async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;
     let failuresCount = 0;
     let processedInLoop = 0;
     const totalCount = productsToImport.length;
-
     const newProductsForState: Product[] = [];
     
     let batch = writeBatch(db);
     let batchCount = 0;
 
-    for (const [index, item] of productsToImport.entries()) {
+    for (const item of productsToImport) {
         processedInLoop++;
         try {
             if (!item.code || !item.name || !item.expirationDate) {
-                 failuresCount++;
+                failuresCount++;
                 continue;
             }
             const parsedDate = parse(String(item.expirationDate), 'dd/MM/yyyy', new Date());
@@ -349,7 +357,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 name: String(item.name),
                 quantity: Number(item.quantity || 0),
                 category: String(item.category || ''),
-                batch: String(item.batch || ''),
+                batch: String(item.batch || `IMPORT-${Date.now()}`),
                 expirationDate: parsedDate.toISOString(),
             };
 
@@ -358,7 +366,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             newProductsForState.push({ ...newProduct, id: docRef.id });
             batchCount++;
 
-            if (batchCount === BATCH_SIZE) {
+            if (batchCount >= BATCH_SIZE) {
                 await batch.commit();
                 successCount += batchCount;
                 batch = writeBatch(db);
@@ -367,10 +375,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             }
 
         } catch (error: any) {
-            console.error(`Error processing product at line ${index + 2}:`, error);
-            failuresCount += batchCount + 1; // Count failed item and the ones in the failed batch
-            batch = writeBatch(db); // Reset batch after an error
-            batchCount = 0;
+            console.error(`Error processing product:`, error);
+            failuresCount++;
         }
     }
 
@@ -415,3 +421,5 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     </DataContext.Provider>
   );
 };
+
+    
