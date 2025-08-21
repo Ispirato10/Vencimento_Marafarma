@@ -2,11 +2,10 @@
 "use client";
 
 import { useRef, useContext, useState } from 'react';
-import { FileUp, FileDown, Trash2, Upload, X } from 'lucide-react';
+import { FileUp, FileDown, Trash2, Upload, X, Image as ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parse, isPast } from 'date-fns';
 import Image from 'next/image';
-import { writeBatch } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -25,21 +24,19 @@ import { useToast } from '@/hooks/use-toast';
 import type { CatalogItem, Product } from '@/types';
 import { DataContext } from '@/context/data-context';
 import { DeleteExpiredDialog } from './_components/delete-expired-dialog';
-import { db } from '@/lib/firebase';
-
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { catalog, products, setCatalog, setProducts, reportAuthor, setReportAuthor, deleteExpiredProducts } = useContext(DataContext);
+  const { catalog, products, setCatalog, setProducts, reportAuthor, setReportAuthor, deleteExpiredProducts, splashImage, setSplashImage } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
+  const splashImageImportRef = useRef<HTMLInputElement>(null);
   
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [isDeleteExpiredDialogOpen, setIsDeleteExpiredDialogOpen] = useState(false);
   
   const expiredProductsCount = products.filter(p => isPast(new Date(p.expirationDate))).length;
-
 
   const handleExportCatalog = () => {
     if (catalog.length === 0) {
@@ -134,9 +131,8 @@ export default function SettingsPage() {
             return [];
         };
 
-        const onCatalogImportComplete = async (processedCatalog: CatalogItem[]) => {
+        const onCatalogImportComplete = (processedCatalog: CatalogItem[]) => {
             if (processedCatalog.length > 0) {
-                // Here we batch write to firestore
                 setCatalog(processedCatalog);
                 toast({
                     title: 'Importação Concluída!',
@@ -202,7 +198,6 @@ export default function SettingsPage() {
                         expirationDate = parse(dateValue, 'dd/MM/yyyy', new Date());
                     }
                 } else if (typeof dateValue === 'number') {
-                    // Handle Excel serial date
                     expirationDate = new Date(1899, 11, 30 + dateValue);
                 }
 
@@ -256,15 +251,28 @@ export default function SettingsPage() {
     event.target.value = '';
   };
   
-  const handleConfirmDeleteExpired = async () => {
-    await deleteExpiredProducts();
+  const handleConfirmDeleteExpired = () => {
+    deleteExpiredProducts();
     toast({
       title: 'Produtos Vencidos Excluídos!',
       description: `${expiredProductsCount} itens foram removidos do estoque.`,
     });
     setIsDeleteExpiredDialogOpen(false);
   };
-
+  
+  const handleSplashImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setSplashImage(result);
+        toast({ title: 'Sucesso!', description: 'Imagem de abertura atualizada.' });
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
 
   return (
     <>
@@ -285,6 +293,13 @@ export default function SettingsPage() {
         accept=".xlsx, .xls"
         disabled={isImporting}
       />
+      <input 
+        type="file"
+        ref={splashImageImportRef}
+        onChange={handleSplashImageChange}
+        className="hidden"
+        accept="image/png, image/jpeg"
+      />
       
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
@@ -293,6 +308,31 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Aparência</CardTitle>
+          <CardDescription>
+            Personalize a aparência do aplicativo, incluindo tema e tela de abertura.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">Tema de Cores</span>
+            <ThemeToggle />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className='flex flex-col gap-1'>
+                <span className="font-medium">Imagem de Abertura</span>
+                <span className="text-xs text-muted-foreground">Recomendado: PNG com fundo transparente</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => splashImageImportRef.current?.click()}>
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Alterar Imagem
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
       <Card>
         <CardHeader>
           <CardTitle>Relatórios</CardTitle>
@@ -307,24 +347,8 @@ export default function SettingsPage() {
               id="report-author"
               value={reportAuthor || ''}
               onChange={(e) => setReportAuthor(e.target.value)}
-              placeholder="Ex: By Fulano de Tal"
+              placeholder="Ex: Por [Seu Nome]"
             />
-          </div>
-        </CardContent>
-      </Card>
-
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Aparência</CardTitle>
-          <CardDescription>
-            Personalize a aparência do aplicativo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <span className="font-medium">Tema</span>
-            <ThemeToggle />
           </div>
         </CardContent>
       </Card>
@@ -333,7 +357,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Gerenciamento de Dados</CardTitle>
           <CardDescription>
-            Importe, exporte ou limpe os dados do sistema.
+            Importe, exporte ou limpe os dados do sistema. Os dados são salvos localmente.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

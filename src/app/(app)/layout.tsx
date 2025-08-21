@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useContext } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { Menu, Package, LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -12,24 +12,28 @@ import { DataProvider, DataContext } from '@/context/data-context';
 import { ClientOnly } from '@/components/client-only';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeToggle } from './_components/theme-toggle';
-
+import { SplashScreen } from './_components/splash-screen';
 
 function AppLayoutContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { loading } = useContext(DataContext);
+  const { loading, splashImage } = useContext(DataContext);
+  const [showSplash, setShowSplash] = useState(true);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-        <div className="flex items-center gap-4 text-lg text-muted-foreground">
-          <LoaderCircle className="h-8 w-8 animate-spin" />
-          <p>Carregando dados do servidor...</p>
-        </div>
-      </div>
-    );
+  // Hide splash screen after a delay
+  useEffect(() => {
+    if (!loading) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 2500); // Show splash for 2.5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
+  if (loading || showSplash) {
+    return <SplashScreen customImage={splashImage} />;
   }
 
   return (
@@ -60,8 +64,8 @@ function AppLayoutContent({
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col">
-               <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+            <SheetContent side="left" className="flex flex-col p-0">
+               <div className="flex h-14 shrink-0 items-center border-b px-4">
                   <Link href="/" className="flex items-center gap-2 font-semibold">
                     <Package className="h-6 w-6" />
                     <span className="">Controle de Vencimentos</span>
