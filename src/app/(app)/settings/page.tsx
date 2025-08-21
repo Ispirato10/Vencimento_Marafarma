@@ -4,7 +4,7 @@
 import { useRef, useContext, useState } from 'react';
 import { FileUp, FileDown, Trash2, ImageIcon, Wifi } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { isPast, parse as dateParse } from 'date-fns';
+import { isPast } from 'date-fns';
 import { getDocs, query, collection, limit } from 'firebase/firestore';
 
 
@@ -191,7 +191,7 @@ export default function SettingsPage() {
   const handleImportCatalog = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const requiredFields = ['code', 'name', 'category'];
+    const requiredFields = ['code', 'name'];
     processImportFile<CatalogItem>(file, requiredFields, importCatalog);
     if(event.target) event.target.value = '';
   };
@@ -199,7 +199,7 @@ export default function SettingsPage() {
   const handleImportDatabase = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const requiredFields = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
+    const requiredFields = ['code', 'name', 'quantity', 'expirationDate'];
     processImportFile<Product>(file, requiredFields, importProducts);
     if(event.target) event.target.value = '';
   };
@@ -207,13 +207,13 @@ export default function SettingsPage() {
   const handleTestConnection = async () => {
     setIsTestingConnection(true);
     try {
-        const testQuery = query(collection(db, 'catalog'), limit(5));
+        const testQuery = query(collection(db, 'catalog'), limit(1));
         const querySnapshot = await getDocs(testQuery);
         const count = querySnapshot.size;
         toast({
             variant: 'accent',
             title: 'Conexão Bem-Sucedida!',
-            description: `O Firebase respondeu corretamente. ${count} itens lidos do catálogo.`
+            description: `O Firebase respondeu corretamente. ${count >= 0 ? 'Conexão OK.' : ''}`
         });
     } catch (error: any) {
         toast({
@@ -345,7 +345,7 @@ export default function SettingsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
-                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">quantity</code>, <code className="bg-muted px-1 py-0.5 rounded">category</code>, <code className="bg-muted px-1 py-0.5 rounded">batch</code>, e <code className="bg-muted px-1 py-0.5 rounded">expirationDate</code>. A data deve estar no formato <code className="bg-muted px-1 py-0.5 rounded">DD/MM/AAAA</code>.
+                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">quantity</code>, <code className="bg-muted px-1 py-0.5 rounded">expirationDate</code>. A data deve estar no formato <code className="bg-muted px-1 py-0.5 rounded">DD/MM/AAAA</code>. Campos opcionais: <code className="bg-muted px-1 py-0.5 rounded">category</code>, <code className="bg-muted px-1 py-0.5 rounded">batch</code>.
                   </p>
                   <div className="flex gap-2 self-start">
                       <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
@@ -366,7 +366,7 @@ export default function SettingsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
-                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, e <code className="bg-muted px-1 py-0.5 rounded">category</code>.
+                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>. Campo opcional: <code className="bg-muted px-1 py-0.5 rounded">category</code>.
                   </p>
                   <div className="flex gap-2 self-start">
                       <Button variant="outline" size="sm" onClick={() => catalogImportRef.current?.click()}>
