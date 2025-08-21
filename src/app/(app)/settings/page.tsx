@@ -107,7 +107,7 @@ export default function SettingsPage() {
    const processImportFile = async <T,>(
     file: File,
     requiredFields: string[],
-    importFunction: (data: T[]) => Promise<void>
+    importFunction: (data: T[], onProgress: (progress: number) => void) => Promise<void>
   ) => {
     setIsImporting(true);
     setImportProgress(0);
@@ -139,7 +139,15 @@ export default function SettingsPage() {
         setImportProgress(50);
         setImportMessage(`Importando ${json.length} itens...`);
         
-        await importFunction(json);
+        // This function will be called by the import logic to update the UI
+        const onProgress = (progress: number) => {
+            // progress is a value from 0 to 1, representing batch completion
+            const baseProgress = 50;
+            const remainingProgress = 50;
+            setImportProgress(baseProgress + (progress * remainingProgress));
+        };
+        
+        await importFunction(json, onProgress);
         
         setImportProgress(100);
         setImportMessage('Importação Concluída!');
@@ -151,6 +159,7 @@ export default function SettingsPage() {
         });
       } catch (error: any) {
         setImportMessage('Erro na importação');
+        setImportProgress(0); // Reset progress on error
         toast({
           variant: 'destructive',
           title: 'Erro na Importação',
@@ -160,7 +169,7 @@ export default function SettingsPage() {
         setTimeout(() => {
           setIsImporting(false);
           setImportMessage('');
-        }, 2000);
+        }, 3000);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -179,7 +188,7 @@ export default function SettingsPage() {
     if (!file) return;
     const requiredFields = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
     
-    const wrappedImportFunction = async (data: any[]) => {
+    const wrappedImportFunction = async (data: any[], onProgress: (p: number) => void) => {
       const parsedData = data.map(item => {
         if (!item.expirationDate || typeof item.expirationDate !== 'string') {
             throw new Error(`Data de vencimento inválida para o produto ${item.name || item.code}`);
@@ -193,7 +202,7 @@ export default function SettingsPage() {
           expirationDate: parsedDate.toISOString(),
         };
       });
-      await importProducts(parsedData);
+      await importProducts(parsedData, onProgress);
     };
 
     processImportFile<Product>(file, requiredFields, wrappedImportFunction as any);
@@ -290,7 +299,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
                 <div className="flex justify-between items-center">
                     <Label>{importMessage}</Label>
-                    <span className="text-sm text-muted-foreground">{importProgress}%</span>
+                    <span className="text-sm text-muted-foreground">{Math.round(importProgress)}%</span>
                 </div>
                 <Progress value={importProgress} />
             </div>

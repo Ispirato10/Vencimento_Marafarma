@@ -11,7 +11,7 @@ import {
   query,
   writeBatch,
 } from 'firebase/firestore';
-import { isPast, parse } from 'date-fns';
+import { isPast } from 'date-fns';
 
 import type { Product, CatalogItem } from '@/types';
 import { db } from '@/lib/firebase';
@@ -24,13 +24,13 @@ interface DataContextType {
   updateProduct: (productToUpdate: Product) => Promise<void>;
   deleteProduct: (productCode: string, productBatch: string) => Promise<void>;
   deleteExpiredProducts: () => Promise<void>;
-  importProducts: (products: Product[]) => Promise<void>;
+  importProducts: (products: Product[], onProgress?: (progress: number) => void) => Promise<void>;
   catalog: CatalogItem[];
   setCatalog: (catalog: CatalogItem[]) => void;
   addCatalogItem: (item: CatalogItem) => Promise<void>;
   updateCatalogItem: (itemToUpdate: CatalogItem) => Promise<void>;
   deleteCatalogItem: (itemCode: string) => Promise<void>;
-  importCatalog: (items: CatalogItem[]) => Promise<void>;
+  importCatalog: (items: CatalogItem[], onProgress?: (progress: number) => void) => Promise<void>;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
   splashImage: string | null;
@@ -80,6 +80,8 @@ const setStorageItem = (key: string, value: any) => {
         console.error(`Error saving localStorage key "${key}":`, error);
     }
 };
+
+const BATCH_SIZE = 50; // Firebase recommends batches of up to 500, using a smaller one for safety.
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProductsState] = useState<Product[]>([]);
@@ -233,35 +235,53 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const importCatalog = async (items: CatalogItem[]) => {
-    const batch = writeBatch(db);
-    const newItems: CatalogItem[] = [];
+  const importCatalog = async (items: CatalogItem[], onProgress?: (progress: number) => void) => {
     const existingCodes = new Set(catalog.map(c => c.code));
+    const newItemsToCommit: CatalogItem[] = [];
 
     items.forEach(item => {
       if (!existingCodes.has(item.code)) {
         const docRef = doc(collection(db, 'catalog'));
         const newItem = { ...item, id: docRef.id };
-        batch.set(docRef, newItem);
-        newItems.push(newItem);
-        existingCodes.add(item.code);
+        newItemsToCommit.push(newItem);
+        existingCodes.add(item.code); // Avoid duplicates within the same file
       }
     });
-    await batch.commit();
-    setCatalogState(prev => [...prev, ...newItems]);
+
+    for (let i = 0; i < newItemsToCommit.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const batchItems = newItemsToCommit.slice(i, i + BATCH_SIZE);
+      batchItems.forEach(item => {
+        const itemRef = doc(db, 'catalog', item.id!);
+        batch.set(itemRef, item);
+      });
+      await batch.commit();
+      onProgress?.((i + batchItems.length) / newItemsToCommit.length);
+    }
+
+    setCatalogState(prev => [...prev, ...newItemsToCommit]);
   };
 
-  const importProducts = async (productsToImport: Product[]) => {
-    const batch = writeBatch(db);
-    const newProducts: Product[] = [];
+  const importProducts = async (productsToImport: Product[], onProgress?: (progress: number) => void) => {
+    const newProductsToCommit: Product[] = [];
     productsToImport.forEach(product => {
       const docRef = doc(collection(db, 'products'));
       const newProduct = { ...product, id: docRef.id };
-      batch.set(docRef, newProduct);
-      newProducts.push(newProduct);
+      newProductsToCommit.push(newProduct);
     });
-    await batch.commit();
-    setProductsState(prev => [...prev, ...newProducts]);
+
+    for (let i = 0; i < newProductsToCommit.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const batchProducts = newProductsToCommit.slice(i, i + BATCH_SIZE);
+        batchProducts.forEach(product => {
+            const docRef = doc(db, 'products', product.id!);
+            batch.set(docRef, product);
+        });
+        await batch.commit();
+        onProgress?.((i + batchProducts.length) / newProductsToCommit.length);
+    }
+    
+    setProductsState(prev => [...prev, ...newProductsToCommit]);
   };
 
   return (
