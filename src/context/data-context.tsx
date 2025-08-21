@@ -92,18 +92,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      console.log("Fetching data from Firebase...");
       const catalogQuery = query(collection(db, 'catalog'));
       const catalogSnapshot = await getDocs(catalogQuery);
       const catalogData = catalogSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as CatalogItem));
       setCatalogState(catalogData.sort((a, b) => a.name.localeCompare(b.name)));
+      console.log(`Fetched ${catalogData.length} catalog items.`);
 
       const productsQuery = query(collection(db, 'products'));
       const productsSnapshot = await getDocs(productsQuery);
       const productsData = productsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
       setProductsState(productsData.sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
+      console.log(`Fetched ${productsData.length} products.`);
 
     } catch (error) {
-      console.error("Erro ao buscar dados do Firebase:", error);
+      console.error("DEBUG: Erro ao buscar dados do Firebase:", error);
       toast({
         variant: 'destructive',
         title: 'Erro de Conexão',
@@ -113,6 +116,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setReportAuthorState(getStorageItem('report_author_data', ''));
       setSplashImageState(getStorageItem('splash_image_data', null));
       setLoading(false);
+      console.log("Finished fetching initial data.");
     }
   }, []);
 
@@ -135,11 +139,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
+      console.log("DEBUG: Attempting to add product:", product);
       const docRef = await addDoc(collection(db, 'products'), product);
       const newProduct = { ...product, id: docRef.id };
       setProductsState(prev => [...prev, newProduct].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
+       console.log("DEBUG: Product added successfully with ID:", docRef.id);
     } catch (error) {
-       console.error("Erro ao adicionar produto:", error);
+       console.error("DEBUG: Erro ao adicionar produto:", error);
        toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o produto.' });
        throw error;
     }
@@ -151,12 +157,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
        return;
     }
     try {
+      console.log("DEBUG: Attempting to update product:", productToUpdate);
       const { id, ...productData } = productToUpdate;
       const productRef = doc(db, 'products', id);
       await updateDoc(productRef, productData);
       setProductsState(prev => prev.map(p => p.id === id ? productToUpdate : p).sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
+      console.log("DEBUG: Product updated successfully.");
     } catch (error) {
-      console.error("Erro ao atualizar produto:", error);
+      console.error("DEBUG: Erro ao atualizar produto:", error);
       toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: 'Não foi possível atualizar o produto.' });
       throw error;
     }
@@ -166,10 +174,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const productToDelete = products.find(p => p.code === productCode && p.batch === productBatch);
     if (!productToDelete || !productToDelete.id) return;
     try {
+      console.log("DEBUG: Attempting to delete product:", productToDelete);
       await deleteDoc(doc(db, 'products', productToDelete.id));
       setProductsState(prev => prev.filter(p => p.id !== productToDelete.id));
+       console.log("DEBUG: Product deleted successfully.");
     } catch (error) {
-      console.error("Erro ao excluir produto:", error);
+      console.error("DEBUG: Erro ao excluir produto:", error);
       toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível excluir o produto.' });
       throw error;
     }
@@ -180,6 +190,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (expiredProducts.length === 0) return;
 
     try {
+       console.log(`DEBUG: Deleting ${expiredProducts.length} expired products.`);
       const batch = writeBatch(db);
       expiredProducts.forEach(product => {
         if(product.id) {
@@ -188,8 +199,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       });
       await batch.commit();
       setProductsState(prev => prev.filter(p => !isPast(new Date(p.expirationDate))));
+      console.log("DEBUG: Expired products deleted successfully.");
     } catch (error) {
-      console.error("Erro ao excluir produtos vencidos:", error);
+      console.error("DEBUG: Erro ao excluir produtos vencidos:", error);
       toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível excluir os produtos vencidos.' });
     }
   };
@@ -199,11 +211,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (itemExists) return;
 
     try {
+        console.log("DEBUG: Attempting to add catalog item:", item);
         const docRef = await addDoc(collection(db, 'catalog'), item);
         const newItem = { ...item, id: docRef.id };
         setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
+        console.log("DEBUG: Catalog item added successfully with ID:", docRef.id);
     } catch (error) {
-        console.error("Erro ao adicionar item ao catálogo:", error);
+        console.error("DEBUG: Erro ao adicionar item ao catálogo:", error);
         toast({ variant: 'destructive', title: 'Erro ao Salvar Catálogo' });
         throw error;
     }
@@ -215,12 +229,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
        return;
     }
     try {
+      console.log("DEBUG: Attempting to update catalog item:", itemToUpdate);
       const { id, ...itemData } = itemToUpdate;
       const itemRef = doc(db, 'catalog', id);
       await updateDoc(itemRef, itemData);
       setCatalogState(prev => prev.map(item => item.id === id ? itemToUpdate : item).sort((a,b) => a.name.localeCompare(b.name)));
+      console.log("DEBUG: Catalog item updated successfully.");
     } catch (error) {
-        console.error("Erro ao atualizar item do catálogo:", error);
+        console.error("DEBUG: Erro ao atualizar item do catálogo:", error);
         toast({ variant: 'destructive', title: 'Erro ao Atualizar Catálogo' });
         throw error;
     }
@@ -230,10 +246,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const itemToDelete = catalog.find(c => c.code === itemCode);
     if (!itemToDelete || !itemToDelete.id) return;
     try {
+      console.log("DEBUG: Attempting to delete catalog item:", itemToDelete);
       await deleteDoc(doc(db, 'catalog', itemToDelete.id));
       setCatalogState(prev => prev.filter(item => item.code !== itemCode));
+      console.log("DEBUG: Catalog item deleted successfully.");
     } catch(error) {
-        console.error("Erro ao excluir item do catálogo:", error);
+        console.error("DEBUG: Erro ao excluir item do catálogo:", error);
         toast({ variant: 'destructive', title: 'Erro ao Excluir do Catálogo' });
         throw error;
     }
@@ -282,11 +300,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
       
         try {
+            console.log(`DEBUG: Committing catalog batch ${i / BATCH_SIZE + 1}...`);
             await batch.commit();
             successCount += batchItems.length;
             newItemsForState.push(...batchItemsWithIds);
+             console.log(`DEBUG: Catalog batch committed successfully.`);
         } catch (error) {
-            console.error("Erro ao salvar lote no catálogo:", error);
+            console.error(`DEBUG: Erro ao salvar lote no catálogo (batch starting at index ${i}):`, error);
             failuresCount += batchItems.length;
         } finally {
             processedCount += batchItems.length;
@@ -347,11 +367,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
         
         try {
+            console.log(`DEBUG: Committing product batch ${i / BATCH_SIZE + 1}...`);
             await batch.commit();
             successCount += batchProducts.length;
             newProductsForState.push(...batchProductsWithIds);
+            console.log(`DEBUG: Product batch committed successfully.`);
         } catch (error) {
-            console.error("Erro ao salvar lote de produtos:", error);
+             console.error(`DEBUG: Erro ao salvar lote de produtos (batch starting at index ${i}):`, error);
             failuresCount += batchProducts.length;
         } finally {
             processedCount += batchProducts.length;
