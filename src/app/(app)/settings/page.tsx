@@ -120,7 +120,12 @@ export default function SettingsPage() {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<T>(worksheet);
+        
+        // CORREÇÃO: Forçar a formatação de data para texto durante a leitura
+        const json = XLSX.utils.sheet_to_json<T>(worksheet, {
+          raw: false, // Garante que os valores formatados sejam usados
+          dateNF: 'dd/mm/yyyy' // Especifica o formato de data desejado
+        });
 
         if (json.length > 0) {
           const firstItemKeys = Object.keys(json[0] as any);
@@ -282,7 +287,6 @@ export default function SettingsPage() {
           )}
           {!isImporting && (
             <div className="space-y-6">
-              {/* Estoque Completo */}
               <div className="flex flex-col p-4 border rounded-lg space-y-4">
                   <h3 className="font-semibold text-lg">Estoque Completo</h3>
                   <p className="text-sm text-muted-foreground">
@@ -304,7 +308,6 @@ export default function SettingsPage() {
                   </div>
               </div>
 
-              {/* Catálogo */}
                <div className="flex flex-col p-4 border rounded-lg space-y-4">
                   <h3 className="font-semibold text-lg">Catálogo de Produtos</h3>
                   <p className="text-sm text-muted-foreground">
@@ -374,3 +377,5 @@ const format = (date: Date, formatStr: string) => {
     }
     return date.toISOString(); // fallback
 };
+
+    
