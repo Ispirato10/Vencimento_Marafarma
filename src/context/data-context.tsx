@@ -106,12 +106,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setProductsState(productsData.sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
       console.log(`Fetched ${productsData.length} products.`);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("DEBUG: Erro ao buscar dados do Firebase:", error);
       toast({
         variant: 'destructive',
         title: 'Erro de Conexão',
-        description: 'Não foi possível conectar ao Firebase. Verifique suas credenciais e conexão.',
+        description: `Não foi possível ler dados do Firebase. Verifique suas regras de segurança e a conexão com a internet. Erro: ${error.message}`,
+        duration: 9000
       });
     } finally {
       setReportAuthorState(getStorageItem('report_author_data', ''));
@@ -140,15 +141,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
-      console.log("Attempting to add product:", product);
+      console.log("Attempting to add product to Firestore:", product);
       const docRef = await addDoc(collection(db, 'products'), product);
       const newProduct = { ...product, id: docRef.id };
       setProductsState(prev => [...prev, newProduct].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
-      console.log("Product added successfully with ID:", docRef.id);
-    } catch (error) {
-       console.error("Error adding product:", error);
-       toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o produto.' });
-       throw error; // Re-throw the error so the form can catch it
+      console.log("Product added successfully to Firestore with ID:", docRef.id);
+    } catch (error: any) {
+       console.error("Error adding product to Firestore:", error);
+       throw new Error(`Falha ao salvar no Firebase: ${error.message}`);
     }
   };
   
@@ -162,9 +162,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const productRef = doc(db, 'products', id);
       await updateDoc(productRef, productData);
       setProductsState(prev => prev.map(p => p.id === id ? productToUpdate : p).sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating product:", error);
-      toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: 'Não foi possível atualizar o produto.' });
+      toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: `Não foi possível atualizar o produto. Erro: ${error.message}` });
       throw error;
     }
   };
@@ -175,9 +175,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       await deleteDoc(doc(db, 'products', productToDelete.id));
       setProductsState(prev => prev.filter(p => p.id !== productToDelete.id));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting product:", error);
-      toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível excluir o produto.' });
+      toast({ variant: 'destructive', title: 'Erro ao Excluir', description: `Não foi possível excluir o produto. Erro: ${error.message}` });
       throw error;
     }
   };
@@ -195,9 +195,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       });
       await batch.commit();
       setProductsState(prev => prev.filter(p => !isPast(new Date(p.expirationDate))));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting expired products:", error);
-      toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível excluir os produtos vencidos.' });
+      toast({ variant: 'destructive', title: 'Erro ao Excluir', description: `Não foi possível excluir os produtos vencidos. Erro: ${error.message}` });
     }
   };
 
@@ -209,10 +209,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const docRef = await addDoc(collection(db, 'catalog'), item);
         const newItem = { ...item, id: docRef.id };
         setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error adding catalog item:", error);
-        toast({ variant: 'destructive', title: 'Erro ao Salvar Catálogo' });
-        throw error;
+        throw new Error(`Falha ao salvar no catálogo do Firebase: ${error.message}`);
     }
   }
 
@@ -226,9 +225,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const itemRef = doc(db, 'catalog', id);
       await updateDoc(itemRef, itemData);
       setCatalogState(prev => prev.map(item => item.id === id ? itemToUpdate : item).sort((a,b) => a.name.localeCompare(b.name)));
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error updating catalog item:", error);
-        toast({ variant: 'destructive', title: 'Erro ao Atualizar Catálogo' });
+        toast({ variant: 'destructive', title: 'Erro ao Atualizar Catálogo', description: `Erro: ${error.message}` });
         throw error;
     }
   }
@@ -239,9 +238,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     try {
       await deleteDoc(doc(db, 'catalog', itemToDelete.id));
       setCatalogState(prev => prev.filter(item => item.code !== itemCode));
-    } catch(error) {
+    } catch(error: any) {
         console.error("Error deleting catalog item:", error);
-        toast({ variant: 'destructive', title: 'Erro ao Excluir do Catálogo' });
+        toast({ variant: 'destructive', title: 'Erro ao Excluir do Catálogo', description: `Erro: ${error.message}` });
         throw error;
     }
   };

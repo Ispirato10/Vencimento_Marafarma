@@ -157,12 +157,12 @@ export function ProductForm() {
       setIsNewCatalogItem(false);
       codeInputRef.current?.focus();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Falha ao salvar produto no formulário:", error);
       toast({
         variant: 'destructive',
         title: 'Erro ao Salvar',
-        description: 'Não foi possível salvar o produto. Verifique o console para mais detalhes.'
+        description: error.message || 'Não foi possível salvar o produto. Verifique as regras de segurança do Firestore.'
       });
     } finally {
         setIsSaving(false);
