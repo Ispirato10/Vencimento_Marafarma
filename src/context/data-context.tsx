@@ -17,7 +17,6 @@ import { isPast } from 'date-fns';
 import type { Product, CatalogItem } from '@/types';
 import { db } from '@/lib/firebase';
 import { toast } from '@/hooks/use-toast';
-import { initialCatalog, initialProducts, initialReportAuthor } from '@/lib/data';
 
 interface DataContextType {
   products: Product[];
@@ -26,11 +25,13 @@ interface DataContextType {
   updateProduct: (productToUpdate: Product) => Promise<void>;
   deleteProduct: (productCode: string, productBatch: string) => Promise<void>;
   deleteExpiredProducts: () => Promise<void>;
+  importProducts: (products: Product[]) => Promise<void>;
   catalog: CatalogItem[];
   setCatalog: (catalog: CatalogItem[]) => void;
   addCatalogItem: (item: CatalogItem) => Promise<void>;
   updateCatalogItem: (itemToUpdate: CatalogItem) => Promise<void>;
   deleteCatalogItem: (itemCode: string) => Promise<void>;
+  importCatalog: (items: CatalogItem[]) => Promise<void>;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
   splashImage: string | null;
@@ -45,11 +46,13 @@ export const DataContext = createContext<DataContextType>({
   updateProduct: async () => {},
   deleteProduct: async () => {},
   deleteExpiredProducts: async () => {},
+  importProducts: async () => {},
   catalog: [],
   setCatalog: () => {},
   addCatalogItem: async () => {},
   updateCatalogItem: async () => {},
   deleteCatalogItem: async () => {},
+  importCatalog: async () => {},
   reportAuthor: null,
   setReportAuthor: () => {},
   splashImage: null,
@@ -82,7 +85,7 @@ const setStorageItem = (key: string, value: any) => {
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProductsState] = useState<Product[]>([]);
   const [catalog, setCatalogState] = useState<CatalogItem[]>([]);
-  const [reportAuthor, setReportAuthorState] = useState<string | null>(initialReportAuthor);
+  const [reportAuthor, setReportAuthorState] = useState<string | null>(null);
   const [splashImage, setSplashImageState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -90,27 +93,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Check if Firebase is configured
       if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
         toast({
           variant: 'destructive',
           title: 'Configuração do Firebase ausente',
-          description: 'As credenciais do Firebase não foram encontradas. O aplicativo usará dados de exemplo.',
-          duration: 10000,
+          description: 'As credenciais do Firebase não foram encontradas. Verifique o arquivo .env.local.exemplo.',
+          duration: 9000,
         });
-        setCatalogState(initialCatalog);
-        setProductsState(initialProducts);
+        // Clear local data if Firebase isn't configured to avoid confusion
+        setCatalogState([]);
+        setProductsState([]);
         return;
       }
 
       const catalogQuery = query(collection(db, 'catalog'));
       const catalogSnapshot = await getDocs(catalogQuery);
-      const catalogData = catalogSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CatalogItem));
+      const catalogData = catalogSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as CatalogItem));
       setCatalogState(catalogData);
 
       const productsQuery = query(collection(db, 'products'));
       const productsSnapshot = await getDocs(productsQuery);
-      const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      const productsData = productsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
       setProductsState(productsData);
 
     } catch (error) {
@@ -118,14 +121,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       toast({
         variant: 'destructive',
         title: 'Erro de Conexão',
-        description: 'Não foi possível conectar ao Firebase. Verifique suas credenciais e conexão com a internet.',
+        description: 'Não foi possível conectar ao Firebase. Verifique suas credenciais e conexão.',
       });
-      // Fallback to initial data on error
-      setCatalogState(initialCatalog);
-      setProductsState(initialProducts);
     } finally {
       // Load non-firestore data from localStorage
-      setReportAuthorState(getStorageItem('report_author_data', initialReportAuthor));
+      setReportAuthorState(getStorageItem('report_author_data', ''));
       setSplashImageState(getStorageItem('splash_image_data', null));
       setLoading(false);
     }
@@ -136,12 +136,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchData]);
 
   const setProducts = (newProducts: Product[]) => {
-    // This is now mainly for local state updates, persistence is handled by specific functions
     setProductsState(newProducts);
   }
 
   const setCatalog = (newCatalog: CatalogItem[]) => {
-    // This is now mainly for local state updates, persistence is handled by specific functions
     setCatalogState(newCatalog);
   }
   
@@ -157,9 +155,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addProduct = async (product: Product) => {
     try {
-      const productRef = doc(collection(db, 'products'));
-      const newProduct = { ...product, id: productRef.id };
-      await setDoc(productRef, newProduct);
+      const docRef = doc(collection(db, 'products'));
+      const newProduct = { ...product, id: docRef.id };
+      await setDoc(docRef, newProduct);
       setProductsState(prev => [...prev, newProduct]);
     } catch (error) {
        console.error("Erro ao adicionar produto:", error);
@@ -214,9 +212,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const itemExists = catalog.some(c => c.code === item.code);
     if (!itemExists) {
         try {
-            const itemRef = doc(collection(db, 'catalog'));
-            const newItem = { ...item, id: itemRef.id };
-            await setDoc(itemRef, newItem);
+            const docRef = doc(collection(db, 'catalog'));
+            const newItem = { ...item, id: docRef.id };
+            await setDoc(docRef, newItem);
             setCatalogState(prev => [...prev, newItem]);
         } catch (error) {
             console.error("Erro ao adicionar item ao catálogo:", error);
@@ -248,6 +246,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         toast({ variant: 'destructive', title: 'Erro ao Excluir do Catálogo' });
     }
   };
+  
+  const importCatalog = async (items: CatalogItem[]) => {
+    const batch = writeBatch(db);
+    const newItems: CatalogItem[] = [];
+    items.forEach(item => {
+      const docRef = doc(collection(db, 'catalog'));
+      const newItem = { ...item, id: docRef.id };
+      batch.set(docRef, newItem);
+      newItems.push(newItem);
+    });
+    await batch.commit();
+    setCatalogState(prev => [...prev, ...newItems]); // Consider replacing instead of merging
+  };
+
+  const importProducts = async (products: Product[]) => {
+    const batch = writeBatch(db);
+    const newProducts: Product[] = [];
+    products.forEach(product => {
+      const docRef = doc(collection(db, 'products'));
+      const newProduct = { ...product, id: docRef.id };
+      batch.set(docRef, newProduct);
+      newProducts.push(newProduct);
+    });
+    await batch.commit();
+    setProductsState(prev => [...prev, ...newProducts]); // Consider replacing instead of merging
+  };
 
   return (
     <DataContext.Provider value={{ 
@@ -257,11 +281,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         updateProduct,
         deleteProduct,
         deleteExpiredProducts,
+        importProducts,
         catalog, 
         setCatalog, 
         addCatalogItem,
         updateCatalogItem,
         deleteCatalogItem,
+        importCatalog,
         reportAuthor,
         setReportAuthor,
         splashImage,

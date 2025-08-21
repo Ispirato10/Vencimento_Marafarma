@@ -34,7 +34,9 @@ export default function SettingsPage() {
     setReportAuthor, 
     deleteExpiredProducts, 
     splashImage, 
-    setSplashImage 
+    setSplashImage,
+    importCatalog,
+    importProducts,
   } = useContext(DataContext);
   const catalogImportRef = useRef<HTMLInputElement>(null);
   const databaseImportRef = useRef<HTMLInputElement>(null);
@@ -51,7 +53,7 @@ export default function SettingsPage() {
       toast({ variant: 'destructive', title: 'Nada para Exportar', description: 'Seu catálogo de produtos está vazio.' });
       return;
     }
-    const worksheet = XLSX.utils.json_to_sheet(catalog);
+    const worksheet = XLSX.utils.json_to_sheet(catalog.map(({ id, ...rest}) => rest)); // Remove ID
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Catálogo');
     XLSX.writeFile(workbook, 'catalogo_produtos.xlsx');
@@ -66,6 +68,7 @@ export default function SettingsPage() {
     const dataToExport = products.map(p => ({
       ...p,
       expirationDate: format(new Date(p.expirationDate), 'yyyy-MM-dd'),
+      id: undefined, // Remove ID
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -98,8 +101,80 @@ export default function SettingsPage() {
         toast({ title: 'Sucesso!', description: 'Imagem de abertura atualizada.' });
     };
     reader.readAsDataURL(file);
-    event.target.value = '';
+    if(event.target) event.target.value = '';
   };
+  
+   const processImportFile = async <T,>(
+    file: File,
+    requiredFields: (keyof T)[],
+    importFunction: (data: T[]) => Promise<void>
+  ) => {
+    setIsImporting(true);
+    setImportProgress(0);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json<T>(worksheet);
+
+        if (json.length > 0) {
+          const firstItemKeys = Object.keys(json[0] as any);
+          const missingFields = requiredFields.filter(field => !firstItemKeys.includes(field as string));
+
+          if (missingFields.length > 0) {
+            throw new Error(`Arquivo inválido. Colunas faltando: ${missingFields.join(', ')}`);
+          }
+        }
+        
+        setImportProgress(33);
+        await importFunction(json);
+        setImportProgress(100);
+
+        toast({
+          title: 'Importação Concluída!',
+          description: `${json.length} itens foram importados com sucesso.`,
+          variant: 'accent',
+        });
+      } catch (error: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro na Importação',
+          description: error.message || 'Ocorreu um erro ao processar o arquivo.',
+        });
+      } finally {
+        setTimeout(() => setIsImporting(false), 1000);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  
+  const handleImportCatalog = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const requiredFields: (keyof CatalogItem)[] = ['code', 'name', 'category'];
+    processImportFile<CatalogItem>(file, requiredFields, importCatalog);
+    if(event.target) event.target.value = '';
+  };
+  
+  const handleImportDatabase = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const requiredFields: (keyof Product)[] = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
+    const importFunction = async (data: any[]) => {
+      const parsedData = data.map(item => ({
+        ...item,
+        expirationDate: parse(item.expirationDate, 'yyyy-MM-dd', new Date()).toISOString(),
+      }));
+      await importProducts(parsedData);
+    };
+    processImportFile<Product>(file, requiredFields, importFunction);
+    if(event.target) event.target.value = '';
+  };
+
 
   return (
     <>
@@ -111,6 +186,20 @@ export default function SettingsPage() {
         className="hidden"
         accept="image/png, image/jpeg"
       />
+      <input 
+          type="file"
+          ref={catalogImportRef}
+          onChange={handleImportCatalog}
+          className="hidden"
+          accept=".xlsx, .xls"
+        />
+        <input 
+          type="file"
+          ref={databaseImportRef}
+          onChange={handleImportDatabase}
+          className="hidden"
+          accept=".xlsx, .xls"
+        />
       
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
@@ -168,30 +257,61 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Gerenciamento de Dados</CardTitle>
           <CardDescription>
-            Exporte os dados do sistema ou limpe os dados vencidos.
+            Importe ou exporte dados do sistema e limpe os produtos vencidos.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col p-4 border rounded-lg space-y-4">
-            <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Exportação de Dados</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Exporte o catálogo e o estoque para arquivos XLSX.
-                  </p>
+           {isImporting && (
+            <div className="space-y-2">
+              <Label>Importando dados...</Label>
+              <Progress value={importProgress} />
+            </div>
+          )}
+          {!isImporting && (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col p-4 border rounded-lg space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                        <h3 className="font-medium">Importação</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Importe catálogo ou estoque de arquivos XLSX.
+                        </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => catalogImportRef.current?.click()}>
+                            <FileUp className="mr-2 h-4 w-4" />
+                            Importar Catálogo
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
+                            <FileUp className="mr-2 h-4 w-4" />
+                            Importar Estoque
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleExportCatalog} disabled={isImporting}>
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Exportar Catálogo
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleExportDatabase} disabled={isImporting}>
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Exportar Estoque
-                  </Button>
+
+                <div className="flex flex-col p-4 border rounded-lg space-y-4">
+                     <div className="flex items-center justify-between">
+                        <div>
+                        <h3 className="font-medium">Exportação</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Exporte catálogo ou estoque para arquivos XLSX.
+                        </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleExportCatalog}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exportar Catálogo
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleExportDatabase}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exportar Estoque
+                    </Button>
+                    </div>
                 </div>
-              </div>
-          </div>
+            </div>
+          )}
            <div className="flex flex-col p-4 border rounded-lg space-y-4 bg-destructive/10 border-destructive/20">
             <div className="flex items-center justify-between">
               <div>
