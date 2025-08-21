@@ -146,7 +146,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const newProduct = { ...product, id: docRef.id };
         setProductsState(prev => [...prev, newProduct].sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
         console.log("Product added successfully with ID:", docRef.id);
-        return Promise.resolve(); // Explicitly return a resolved promise
     } catch (error: any) {
         console.error("Error adding product to Firestore:", error);
         toast({
@@ -154,7 +153,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             title: 'Erro ao Salvar Produto',
             description: `Falha ao salvar no Firebase: ${error.message}`,
         });
-        return Promise.reject(error); // Return a rejected promise
+        throw error;
     }
 }, []);
   
@@ -213,12 +212,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     console.log("Attempting to add catalog item...", item);
     try {
-        // Use setDoc with the item's code as the ID
         await setDoc(doc(db, 'catalog', item.code), item);
         const newItem = { ...item, id: item.code };
         setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
         console.log("Catalog item added successfully with ID:", item.code);
-        return Promise.resolve();
     } catch (error: any) {
         console.error("Error adding catalog item:", error);
         toast({
@@ -226,7 +223,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             title: 'Erro ao Salvar no Catálogo',
             description: `Falha ao salvar no Firebase: ${error.message}`,
         });
-        return Promise.reject(error);
+        throw error;
     }
   }, [catalog]);
 
@@ -264,16 +261,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     let successCount = 0;
     let failuresCount = 0;
     const totalCount = items.length;
-    let processedInLoop = 0;
+    let processedCount = 0;
 
     let batch = writeBatch(db);
     let batchCount = 0;
-    const localNewItems: CatalogItem[] = [];
+    
+    // This will hold the items to update the state with at the end.
+    const importedItemsForState: CatalogItem[] = [];
 
     for (const item of items) {
-        processedInLoop++;
         const code = String(item.code || '').trim();
-
         if (!code || !item.name) {
             failuresCount++;
             continue;
@@ -286,28 +283,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         };
         
         const docRef = doc(db, 'catalog', code);
-        batch.set(docRef, newItemData, { merge: true }); // Use merge:true to upsert
+        batch.set(docRef, newItemData, { merge: true });
         batchCount++;
         
-        // This is for the local state update, not a read from DB
-        const existingIndex = localNewItems.findIndex(i => i.code === code);
-        if (existingIndex > -1) {
-            localNewItems[existingIndex] = { ...newItemData, id: code };
-        } else {
-            localNewItems.push({ ...newItemData, id: code });
-        }
+        importedItemsForState.push({ ...newItemData, id: code });
         
         if (batchCount >= BATCH_SIZE) {
             try {
                 await batch.commit();
                 successCount += batchCount;
+                processedCount += batchCount;
+                onProgress?.({ total: totalCount, processed: processedCount });
                 batch = writeBatch(db); // Start a new batch
                 batchCount = 0;
-                onProgress?.({ total: totalCount, processed: processedInLoop });
             } catch (error) {
                 console.error(`Error committing catalog batch:`, error);
                 failuresCount += batchCount;
-                batch = writeBatch(db); // Start a new batch even if the last one failed
+                batch = writeBatch(db); 
                 batchCount = 0;
             }
         }
@@ -317,17 +309,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         try {
             await batch.commit();
             successCount += batchCount;
-            onProgress?.({ total: totalCount, processed: processedInLoop });
+            processedCount += batchCount;
+            onProgress?.({ total: totalCount, processed: processedCount });
         } catch (error) {
             console.error(`Error committing final catalog batch:`, error);
             failuresCount += batchCount;
         }
     }
     
-    // Update local state after all batches are committed
+    // Single, efficient state update at the end
     setCatalogState(prev => {
         const prevMap = new Map(prev.map(item => [item.code, item]));
-        localNewItems.forEach(item => prevMap.set(item.code, item));
+        importedItemsForState.forEach(item => prevMap.set(item.code, item));
         return Array.from(prevMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     });
     
