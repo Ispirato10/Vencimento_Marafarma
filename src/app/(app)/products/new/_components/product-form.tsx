@@ -339,5 +339,3 @@ export function ProductForm() {
     </Card>
   );
 }
-
-    
