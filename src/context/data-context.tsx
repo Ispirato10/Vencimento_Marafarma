@@ -81,7 +81,7 @@ const setStorageItem = (key: string, value: any) => {
     }
 };
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 5;
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProductsState] = useState<Product[]>([]);
