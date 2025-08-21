@@ -111,8 +111,7 @@ export default function SettingsPage() {
    const processImportFile = async <T,>(
     file: File,
     requiredFields: string[],
-    importFunction: (data: T[], onProgress: (progress: {total: number, processed: number}) => void) => Promise<void>,
-    isProductImport: boolean = false
+    importFunction: (data: T[], onProgress: (progress: {total: number, processed: number}) => void) => Promise<void>
   ) => {
     setIsImporting(true);
     setImportProgress(0);
@@ -121,7 +120,7 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 200)); // Short delay for UX
+        await new Promise(resolve => setTimeout(resolve, 200)); 
         setImportProgress(25);
         setImportMessage('Processando arquivo...');
         
@@ -141,7 +140,7 @@ export default function SettingsPage() {
         
         await new Promise(resolve => setTimeout(resolve, 200));
         setImportProgress(50);
-        setImportMessage(`Encontrados ${json.length} itens. Validando dados...`);
+        setImportMessage(`Encontrados ${json.length} itens. Validando cabeçalhos...`);
 
         const firstItemKeys = Object.keys(json[0] as any);
         const missingFields = requiredFields.filter(field => !firstItemKeys.includes(field as string));
@@ -150,48 +149,29 @@ export default function SettingsPage() {
           throw new Error(`Arquivo inválido. Colunas faltando: ${missingFields.join(', ')}`);
         }
         
-        let processedData;
-        if (isProductImport) {
-            processedData = json.map(item => {
-                if (!item.expirationDate || typeof item.expirationDate !== 'string') {
-                    throw new Error(`Data de vencimento inválida ou ausente para o produto ${item.name || item.code}`);
-                }
-                const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
-                if (isNaN(parsedDate.getTime())) {
-                    throw new Error(`Formato de data inválido para "${item.expirationDate}" no produto ${item.name || item.code}. Use DD/MM/AAAA.`);
-                }
-                return {
-                    ...item,
-                    expirationDate: parsedDate.toISOString(),
-                };
-            });
-        } else {
-            processedData = json;
-        }
-        
         await new Promise(resolve => setTimeout(resolve, 200));
-        setImportMessage(`Iniciando importação de ${processedData.length} itens...`);
+        setImportMessage(`Iniciando importação de ${json.length} itens...`);
         
         const onProgress = (progress: {total: number, processed: number}) => {
-            const baseProgress = 50; // Starts after file processing
-            const importProgress = (progress.processed / progress.total) * 50;
-            setImportProgress(baseProgress + importProgress);
+            const baseProgress = 50; 
+            const importProgressPercentage = progress.total > 0 ? (progress.processed / progress.total) * 50 : 50;
+            setImportProgress(baseProgress + importProgressPercentage);
             setImportMessage(`Salvando ${progress.processed} de ${progress.total} itens...`);
         };
         
-        await importFunction(processedData as T[], onProgress);
+        await importFunction(json as T[], onProgress);
         
         setImportProgress(100);
         setImportMessage('Importação Concluída!');
 
         toast({
           title: 'Importação Concluída!',
-          description: `${processedData.length} itens foram importados com sucesso.`,
+          description: `${json.length} itens foram importados com sucesso.`,
           variant: 'accent',
         });
       } catch (error: any) {
         setImportMessage('Erro na importação');
-        setImportProgress(0); // Reset progress on error
+        setImportProgress(0);
         toast({
           variant: 'destructive',
           title: 'Erro na Importação',
@@ -220,7 +200,7 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     const requiredFields = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
-    processImportFile<Product>(file, requiredFields, importProducts, true);
+    processImportFile<Product>(file, requiredFields, importProducts);
     if(event.target) event.target.value = '';
   };
   

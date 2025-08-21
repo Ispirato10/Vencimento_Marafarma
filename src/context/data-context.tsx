@@ -11,7 +11,7 @@ import {
   query,
   writeBatch,
 } from 'firebase/firestore';
-import { isPast } from 'date-fns';
+import { isPast, parse as dateParse } from 'date-fns';
 
 import type { Product, CatalogItem } from '@/types';
 import { db } from '@/lib/firebase';
@@ -81,7 +81,7 @@ const setStorageItem = (key: string, value: any) => {
     }
 };
 
-const BATCH_SIZE = 50; // Firebase recommends batches of up to 500, using a smaller one for safety.
+const BATCH_SIZE = 50;
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProductsState] = useState<Product[]>([]);
@@ -90,7 +90,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [splashImage, setSplashImageState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all data from Firestore on initial mount
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -244,7 +243,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const docRef = doc(collection(db, 'catalog'));
         const newItem = { ...item, id: docRef.id };
         newItemsToCommit.push(newItem);
-        existingCodes.add(item.code); // Avoid duplicates within the same file
+        existingCodes.add(item.code); 
       }
     });
     
@@ -269,13 +268,30 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCatalogState(prev => [...prev, ...newItemsToCommit]);
   };
 
-  const importProducts = async (productsToImport: Product[], onProgress?: (progress: {total: number, processed: number}) => void) => {
-    const newProductsToCommit: Product[] = [];
-    productsToImport.forEach(product => {
-      const docRef = doc(collection(db, 'products'));
-      const newProduct = { ...product, id: docRef.id };
-      newProductsToCommit.push(newProduct);
-    });
+  const importProducts = async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
+    let processedData;
+    try {
+        processedData = productsToImport.map(item => {
+            if (!item.expirationDate || typeof item.expirationDate !== 'string') {
+                throw new Error(`Data de vencimento inválida ou ausente para o produto ${item.name || item.code}`);
+            }
+            const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
+            if (isNaN(parsedDate.getTime())) {
+                throw new Error(`Formato de data inválido para "${item.expirationDate}" no produto ${item.name || item.code}. Use DD/MM/AAAA.`);
+            }
+            const docRef = doc(collection(db, 'products'));
+            return {
+                ...item,
+                id: docRef.id,
+                expirationDate: parsedDate.toISOString(),
+            };
+        });
+    } catch (error) {
+        // This will propagate the error to the calling function in settings page
+        throw error;
+    }
+    
+    const newProductsToCommit: Product[] = processedData;
 
     if (newProductsToCommit.length === 0) {
         onProgress?.({ total: 0, processed: 0 });
