@@ -34,8 +34,8 @@ const productFormSchema = z.object({
   code: z.string().min(1, 'Código é obrigatório.'),
   name: z.string().min(1, 'Nome é obrigatório.'),
   quantity: z.coerce.number().min(1, 'Quantidade deve ser maior que 0.'),
-  category: z.string(),
-  batch: z.string(),
+  category: z.string().optional(),
+  batch: z.string().optional(),
   expirationDate: z.string().refine((val) => {
     const parsedDate = parse(val, 'dd/MM/yyyy', new Date());
     return !isNaN(parsedDate.getTime()) && val.length === 10;
@@ -89,13 +89,13 @@ export function ProductForm() {
 
     if (catalogItem) {
       form.setValue('name', catalogItem.name, { shouldValidate: true });
-      form.setValue('category', catalogItem.category, { shouldValidate: true });
+      form.setValue('category', catalogItem.category || '', { shouldValidate: true });
       setIsNewCatalogItem(false);
       toast({
         title: 'Produto encontrado!',
         description: `Dados de "${catalogItem.name}" preenchidos.`,
       });
-       nameInputRef.current?.focus();
+       quantityInputRef.current?.focus();
     } else {
        toast({
         variant: 'default',
@@ -107,26 +107,52 @@ export function ProductForm() {
     }
   };
   
-  const onSubmit = (data: ProductFormValues) => {
-    const parsedDate = parse(data.expirationDate, 'dd/MM/yyyy', new Date());
-    const newProduct: Product = { ...data, expirationDate: parsedDate.toISOString() };
-    addProduct(newProduct);
-    
-    let toastDescription = `O produto "${data.name}" foi adicionado com sucesso.`;
-    if (isNewCatalogItem) {
-        const newCatalogItem: CatalogItem = { code: data.code, name: data.name, category: data.category };
-        addCatalogItem(newCatalogItem);
-        toastDescription += ' Este novo item foi adicionado ao seu catálogo.';
-    }
+  const onSubmit = async (data: ProductFormValues) => {
+    try {
+      const parsedDate = parse(data.expirationDate, 'dd/MM/yyyy', new Date());
+      
+      const newProduct: Omit<Product, 'id'> = { 
+        ...data, 
+        category: data.category || '',
+        batch: data.batch || '',
+        expirationDate: parsedDate.toISOString() 
+      };
 
-    toast({
-      title: 'Produto Salvo!',
-      description: toastDescription,
-      variant: 'accent',
-    });
-    form.reset();
-    setIsNewCatalogItem(false);
-    codeInputRef.current?.focus();
+      await addProduct(newProduct as Product);
+      
+      let toastDescription = `O produto "${data.name}" foi adicionado com sucesso.`;
+      
+      if (isNewCatalogItem) {
+          const newCatalogItem: Omit<CatalogItem, 'id'> = { 
+            code: data.code, 
+            name: data.name, 
+            category: data.category || '' 
+          };
+          await addCatalogItem(newCatalogItem as CatalogItem);
+          toastDescription += ' Este novo item foi adicionado ao seu catálogo.';
+      }
+
+      toast({
+        title: 'Produto Salvo!',
+        description: toastDescription,
+        variant: 'accent',
+      });
+
+      form.reset({
+         code: '',
+         name: '',
+         quantity: 1,
+         category: '',
+         batch: '',
+         expirationDate: '',
+      });
+      setIsNewCatalogItem(false);
+      codeInputRef.current?.focus();
+
+    } catch (error) {
+      // Errors are already handled in DataContext, but we can add specific form logic here if needed.
+      console.error("Falha ao salvar produto no formulário:", error)
+    }
   };
   
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,7 +203,7 @@ export function ProductForm() {
                         {...field}
                         ref={codeInputRef}
                         onBlur={handleCodeBlur}
-                        onKeyDown={(e) => e.key === 'Enter' && handleCodeBlur(e as any)}
+                        onKeyDown={(e) => handleKeyDown(e, nameInputRef)}
                       />
                       {isFetching && (
                         <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
@@ -201,6 +227,7 @@ export function ProductForm() {
                         {...field} 
                         ref={nameInputRef} 
                         onKeyDown={(e) => handleKeyDown(e, categoryInputRef)}
+                        readOnly={!isNewCatalogItem && form.getValues('name') !== ''}
                       />
                     </FormControl>
                     <FormMessage />
@@ -219,6 +246,7 @@ export function ProductForm() {
                         {...field}
                         ref={categoryInputRef}
                         onKeyDown={(e) => handleKeyDown(e, quantityInputRef)}
+                        readOnly={!isNewCatalogItem && form.getValues('category') !== ''}
                        />
                     </FormControl>
                     <FormMessage />

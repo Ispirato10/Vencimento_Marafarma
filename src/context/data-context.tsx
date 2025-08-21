@@ -10,6 +10,8 @@ import {
   deleteDoc,
   query,
   writeBatch,
+  addDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { isPast, parse } from 'date-fns';
 
@@ -81,7 +83,7 @@ const setStorageItem = (key: string, value: any) => {
     }
 };
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 1;
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProductsState] = useState<Product[]>([]);
@@ -142,22 +144,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addProduct = async (product: Product) => {
     try {
-      const docRef = doc(collection(db, 'products'));
+      const docRef = await addDoc(collection(db, 'products'), product);
       const newProduct = { ...product, id: docRef.id };
-      await setDoc(docRef, newProduct);
       setProductsState(prev => [...prev, newProduct].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
     } catch (error) {
        console.error("Erro ao adicionar produto:", error);
        toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o produto.' });
+       throw error; // Re-throw error to be caught by the form
     }
   };
   
   const updateProduct = async (productToUpdate: Product) => {
-    if (!productToUpdate.id) return;
+    if (!productToUpdate.id) {
+       toast({ variant: 'destructive', title: 'Erro Crítico', description: 'Produto sem ID para atualizar.' });
+       return;
+    }
     try {
-      const productRef = doc(db, 'products', productToUpdate.id);
-      await setDoc(productRef, productToUpdate, { merge: true });
-      setProductsState(prev => prev.map(p => p.id === productToUpdate.id ? productToUpdate : p));
+      const { id, ...productData } = productToUpdate;
+      const productRef = doc(db, 'products', id);
+      await updateDoc(productRef, productData);
+      setProductsState(prev => prev.map(p => p.id === id ? productToUpdate : p));
     } catch (error) {
       console.error("Erro ao atualizar produto:", error);
       toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: 'Não foi possível atualizar o produto.' });
@@ -197,25 +203,29 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const addCatalogItem = async (item: CatalogItem) => {
     const itemExists = catalog.some(c => c.code === item.code);
-    if (!itemExists) {
-        try {
-            const docRef = doc(collection(db, 'catalog'));
-            const newItem = { ...item, id: docRef.id };
-            await setDoc(docRef, newItem);
-            setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
-        } catch (error) {
-            console.error("Erro ao adicionar item ao catálogo:", error);
-            toast({ variant: 'destructive', title: 'Erro ao Salvar Catálogo' });
-        }
+    if (itemExists) return;
+
+    try {
+        const docRef = await addDoc(collection(db, 'catalog'), item);
+        const newItem = { ...item, id: docRef.id };
+        setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
+    } catch (error) {
+        console.error("Erro ao adicionar item ao catálogo:", error);
+        toast({ variant: 'destructive', title: 'Erro ao Salvar Catálogo' });
+        throw error; // Re-throw error to be caught by the form
     }
   }
 
   const updateCatalogItem = async (itemToUpdate: CatalogItem) => {
-    if (!itemToUpdate.id) return;
+    if (!itemToUpdate.id) {
+       toast({ variant: 'destructive', title: 'Erro Crítico', description: 'Item de catálogo sem ID para atualizar.' });
+       return;
+    }
     try {
-      const itemRef = doc(db, 'catalog', itemToUpdate.id);
-      await setDoc(itemRef, itemToUpdate, { merge: true });
-      setCatalogState(prev => prev.map(item => item.id === itemToUpdate.id ? itemToUpdate : item));
+      const { id, ...itemData } = itemToUpdate;
+      const itemRef = doc(db, 'catalog', id);
+      await updateDoc(itemRef, itemData);
+      setCatalogState(prev => prev.map(item => item.id === id ? itemToUpdate : item));
     } catch (error) {
         console.error("Erro ao atualizar item do catálogo:", error);
         toast({ variant: 'destructive', title: 'Erro ao Atualizar Catálogo' });
@@ -235,21 +245,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const importCatalog = async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
-    const totalCount = items.length;
     let successCount = 0;
+    let failuresCount = 0;
     let processedCount = 0;
+    const totalCount = items.length;
     
     const existingCodes = new Set(catalog.map(c => c.code));
-
     const validItems: CatalogItem[] = [];
 
     for (const item of items) {
       const code = String(item.code || '').trim();
       if (!code || !item.name) {
         console.warn('Item do catálogo ignorado por falta de código ou nome:', item);
+        failuresCount++;
         continue;
       }
       if (existingCodes.has(code)) {
+        failuresCount++; // Consider duplicates as failures for this import session
         continue;
       }
       
@@ -262,49 +274,52 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       existingCodes.add(code);
     }
     
+    const newItemsForState: CatalogItem[] = [];
+
     for (let i = 0; i < validItems.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
         const batchItems = validItems.slice(i, i + BATCH_SIZE);
-        const newCatalogItemsForState: CatalogItem[] = [];
-
+        
         for (const item of batchItems) {
-            const docRef = doc(collection(db, 'catalog'));
-            const itemWithId = { ...item, id: docRef.id };
-            batch.set(docRef, itemWithId);
-            newCatalogItemsForState.push(itemWithId);
+            const docRef = doc(collection(db, 'catalog')); // Generate a new ref for each item
+            batch.set(docRef, item);
+            newItemsForState.push({ ...item, id: docRef.id });
         }
       
         try {
             await batch.commit();
             successCount += batchItems.length;
-            setCatalogState(prev => [...prev, ...newCatalogItemsForState].sort((a,b) => a.name.localeCompare(b.name)));
         } catch (error) {
             console.error("Erro ao salvar lote no catálogo:", error);
-            throw new Error(`Falha ao salvar um lote no Firebase. Erro: ${(error as Error).message}`);
+            failuresCount += batchItems.length;
         } finally {
             processedCount += batchItems.length;
             onProgress?.({ total: validItems.length, processed: processedCount });
         }
     }
-    return { success: successCount, failures: totalCount - successCount, total: totalCount };
+    
+    // Update state once at the end
+    setCatalogState(prev => [...prev, ...newItemsForState].sort((a,b) => a.name.localeCompare(b.name)));
+    
+    return { success: successCount, failures: failuresCount, total: totalCount };
   };
 
   const importProducts = async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
-    const totalCount = productsToImport.length;
     let successCount = 0;
     let failuresCount = 0;
     let processedCount = 0;
+    const totalCount = productsToImport.length;
 
     const validProducts: Product[] = [];
 
     for (const [index, item] of productsToImport.entries()) {
         try {
             if (!item.code || !item.name || !item.expirationDate) {
-                throw new Error(`Dados essenciais faltando (código, nome, data)`);
+                throw new Error(`Dados essenciais faltando na linha ${index + 2} (código, nome, data)`);
             }
-            const parsedDate = parse(item.expirationDate, 'dd/MM/yyyy', new Date());
+            const parsedDate = parse(String(item.expirationDate), 'dd/MM/yyyy', new Date());
             if (isNaN(parsedDate.getTime())) {
-                throw new Error(`Data inválida "${item.expirationDate}". Use o formato DD/MM/AAAA.`);
+                throw new Error(`Data inválida "${item.expirationDate}" na linha ${index + 2}. Use o formato DD/MM/AAAA.`);
             }
 
             const newProduct: Product = {
@@ -316,28 +331,28 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 expirationDate: parsedDate.toISOString(),
             };
             validProducts.push(newProduct);
-        } catch (error) {
-            console.error(`Erro ao processar produto na linha ${index + 2}: ${(error as Error).message}`);
+        } catch (error: any) {
+            console.error(error.message);
+            toast({ variant: "destructive", title: "Erro na Validação", description: error.message, duration: 5000 });
             failuresCount++;
         }
     }
+    
+    const newProductsForState: Product[] = [];
 
     for (let i = 0; i < validProducts.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
         const batchProducts = validProducts.slice(i, i + BATCH_SIZE);
-        const newProductsForState: Product[] = [];
-
+       
         for (const product of batchProducts) {
-            const docRef = doc(collection(db, 'products'));
-            const productWithId = { ...product, id: docRef.id };
-            batch.set(docRef, productWithId);
-            newProductsForState.push(productWithId);
+            const docRef = doc(collection(db, 'products')); // Generate ref
+            batch.set(docRef, product);
+            newProductsForState.push({ ...product, id: docRef.id });
         }
         
         try {
             await batch.commit();
             successCount += batchProducts.length;
-            setProductsState(prev => [...prev, ...newProductsForState].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
         } catch (error) {
             console.error("Erro ao salvar lote de produtos:", error);
             failuresCount += batchProducts.length;
@@ -346,6 +361,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             onProgress?.({ total: validProducts.length, processed: processedCount });
         }
     }
+    
+    // Update state once at the end
+    setProductsState(prev => [...prev, ...newProductsForState].sort((a,b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
+
     return { success: successCount, failures: failuresCount, total: totalCount };
   };
 
