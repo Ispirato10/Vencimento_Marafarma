@@ -71,7 +71,7 @@ export default function SettingsPage() {
     }
     const dataToExport = products.map(p => ({
       ...p,
-      expirationDate: format(new Date(p.expirationDate), 'dd/MM/yyyy'),
+      expirationDate: new Date(p.expirationDate).toLocaleDateString('pt-BR'),
       id: undefined, // Remove ID
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -416,15 +416,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-// Helper to format date for export
-const format = (date: Date, formatStr: string) => {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-
-    if (formatStr === 'dd/MM/yyyy') {
-        return `${day}/${month}/${year}`;
-    }
-    return date.toISOString(); // fallback
-};
