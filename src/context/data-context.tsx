@@ -140,20 +140,25 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setStorageItem('splash_image_data', image);
   }
 
- const addProduct = useCallback(async (product: Omit<Product, 'id'>) => {
+ const addProduct = useCallback(async (product: Omit<Product, 'id'>): Promise<void> => {
     console.log("Attempting to add product...", product);
     try {
+        // Primeiro, adiciona o documento ao Firestore.
         const docRef = await addDoc(collection(db, 'products'), product);
+        console.log("Product added to Firestore with ID:", docRef.id);
+
+        // Depois, atualiza o estado local com o novo produto, incluindo o ID retornado.
         const newProduct = { ...product, id: docRef.id };
         setProductsState(prev => [...prev, newProduct].sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
-        console.log("Product added successfully with ID:", docRef.id);
+        console.log("Local state updated successfully.");
     } catch (error: any) {
         console.error("Error adding product to Firestore:", error);
         toast({
             variant: 'destructive',
             title: 'Erro ao Salvar Produto',
-            description: `Falha ao salvar no Firebase: ${error.message}`,
+            description: `Falha ao salvar no Firebase: ${error.message}. Verifique as permissões do Firestore.`,
         });
+        // Propaga o erro para que o formulário saiba que a submissão falhou.
         throw error;
     }
 }, []);
@@ -207,12 +212,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addCatalogItem = useCallback(async (item: Omit<CatalogItem, 'id'>) => {
+  const addCatalogItem = useCallback(async (item: Omit<CatalogItem, 'id'>): Promise<void> => {
     const itemExists = catalog.some(c => c.code === item.code);
-    if (itemExists) return Promise.resolve();
-
+    if (itemExists) {
+        console.log("Catalog item already exists. Skipping add.");
+        return Promise.resolve();
+    }
+    
     console.log("Attempting to add catalog item...", item);
     try {
+        // Usa o `code` como ID do documento para evitar duplicatas.
         await setDoc(doc(db, 'catalog', item.code), item);
         const newItem = { ...item, id: item.code };
         setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
@@ -226,7 +235,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         });
         throw error;
     }
-  }, [catalog]);
+}, [catalog]);
+
 
   const updateCatalogItem = async (itemToUpdate: CatalogItem) => {
     if (!itemToUpdate.id) {
@@ -262,14 +272,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     let successCount = 0;
     let failuresCount = 0;
     const totalCount = itemsToImport.length;
-    let processedCount = 0;
     const importedItemsForState: CatalogItem[] = [];
 
     let batch = writeBatch(db);
     let batchCount = 0;
     
     for (const item of itemsToImport) {
-        processedCount++;
         const code = String(item.code || '').trim();
         if (!code || !item.name) {
             failuresCount++;
@@ -282,7 +290,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             category: String(item.category || ''),
         };
 
-        const docRef = doc(db, 'catalog', code);
+        // Usa set com o código como ID para criar ou sobrescrever.
+        const docRef = doc(db, 'catalog', code); 
         batch.set(docRef, newItemData, { merge: true });
         batchCount++;
 
@@ -293,17 +302,34 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 await batch.commit();
                 successCount += batchCount;
                 onProgress?.({ total: totalCount, processed: successCount });
-                batch = writeBatch(db);
+                batch = writeBatch(db); // Inicia um novo lote
                 batchCount = 0;
             } catch (error) {
                 console.error(`Error committing catalog batch:`, error);
                 failuresCount += batchCount;
-                batch = writeBatch(db);
+                batch = writeBatch(db); // Garante um novo lote limpo após a falha
                 batchCount = 0;
+                // Para a execução se a cota for excedida
+                if ((error as any).code === 'resource-exhausted') {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Cota do Firebase Excedida',
+                        description: `A importação foi pausada. ${successCount} de ${totalCount} itens foram salvos. Você pode continuar amanhã.`,
+                        duration: 9000,
+                    });
+                    // Atualiza o estado com o que foi importado até agora
+                     setCatalogState(prev => {
+                        const prevMap = new Map(prev.map(item => [item.code, item]));
+                        importedItemsForState.forEach(item => prevMap.set(item.code, item));
+                        return Array.from(prevMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+                    });
+                    return { success: successCount, failures: failuresCount, total: totalCount };
+                }
             }
         }
     }
 
+    // Commita o último lote, se houver
     if (batchCount > 0) {
         try {
             await batch.commit();
@@ -312,9 +338,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
             console.error(`Error committing final catalog batch:`, error);
             failuresCount += batchCount;
+             if ((error as any).code === 'resource-exhausted') {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Cota do Firebase Excedida',
+                    description: `A importação foi pausada. ${successCount} de ${totalCount} itens foram salvos. Você pode continuar amanhã.`,
+                    duration: 9000,
+                });
+            }
         }
     }
 
+    // Atualiza o estado local uma vez no final com todos os itens importados com sucesso
     setCatalogState(prev => {
         const prevMap = new Map(prev.map(item => [item.code, item]));
         importedItemsForState.forEach(item => prevMap.set(item.code, item));
