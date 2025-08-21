@@ -24,13 +24,13 @@ interface DataContextType {
   updateProduct: (productToUpdate: Product) => Promise<void>;
   deleteProduct: (productCode: string, productBatch: string) => Promise<void>;
   deleteExpiredProducts: () => Promise<void>;
-  importProducts: (products: Product[], onProgress?: (progress: number) => void) => Promise<void>;
+  importProducts: (products: Product[], onProgress?: (progress: {total: number, processed: number}) => void) => Promise<void>;
   catalog: CatalogItem[];
   setCatalog: (catalog: CatalogItem[]) => void;
   addCatalogItem: (item: CatalogItem) => Promise<void>;
   updateCatalogItem: (itemToUpdate: CatalogItem) => Promise<void>;
   deleteCatalogItem: (itemCode: string) => Promise<void>;
-  importCatalog: (items: CatalogItem[], onProgress?: (progress: number) => void) => Promise<void>;
+  importCatalog: (items: CatalogItem[], onProgress?: (progress: {total: number, processed: number}) => void) => Promise<void>;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
   splashImage: string | null;
@@ -235,7 +235,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const importCatalog = async (items: CatalogItem[], onProgress?: (progress: number) => void) => {
+  const importCatalog = async (items: CatalogItem[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     const existingCodes = new Set(catalog.map(c => c.code));
     const newItemsToCommit: CatalogItem[] = [];
 
@@ -247,7 +247,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         existingCodes.add(item.code); // Avoid duplicates within the same file
       }
     });
+    
+    if (newItemsToCommit.length === 0) {
+      onProgress?.({ total: 0, processed: 0 });
+      return;
+    }
 
+    let processedCount = 0;
     for (let i = 0; i < newItemsToCommit.length; i += BATCH_SIZE) {
       const batch = writeBatch(db);
       const batchItems = newItemsToCommit.slice(i, i + BATCH_SIZE);
@@ -256,13 +262,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         batch.set(itemRef, item);
       });
       await batch.commit();
-      onProgress?.((i + batchItems.length) / newItemsToCommit.length);
+      processedCount += batchItems.length;
+      onProgress?.({ total: newItemsToCommit.length, processed: processedCount });
     }
 
     setCatalogState(prev => [...prev, ...newItemsToCommit]);
   };
 
-  const importProducts = async (productsToImport: Product[], onProgress?: (progress: number) => void) => {
+  const importProducts = async (productsToImport: Product[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     const newProductsToCommit: Product[] = [];
     productsToImport.forEach(product => {
       const docRef = doc(collection(db, 'products'));
@@ -270,6 +277,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       newProductsToCommit.push(newProduct);
     });
 
+    if (newProductsToCommit.length === 0) {
+        onProgress?.({ total: 0, processed: 0 });
+        return;
+    }
+
+    let processedCount = 0;
     for (let i = 0; i < newProductsToCommit.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
         const batchProducts = newProductsToCommit.slice(i, i + BATCH_SIZE);
@@ -278,7 +291,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             batch.set(docRef, product);
         });
         await batch.commit();
-        onProgress?.((i + batchProducts.length) / newProductsToCommit.length);
+        processedCount += batchProducts.length;
+        onProgress?.({ total: newProductsToCommit.length, processed: processedCount });
     }
     
     setProductsState(prev => [...prev, ...newProductsToCommit]);
@@ -309,3 +323,5 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     </DataContext.Provider>
   );
 };
+
+    

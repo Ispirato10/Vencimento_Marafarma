@@ -111,7 +111,7 @@ export default function SettingsPage() {
    const processImportFile = async <T,>(
     file: File,
     requiredFields: string[],
-    importFunction: (data: T[], onProgress: (progress: number) => void) => Promise<void>,
+    importFunction: (data: T[], onProgress: (progress: {total: number, processed: number}) => void) => Promise<void>,
     isProductImport: boolean = false
   ) => {
     setIsImporting(true);
@@ -121,7 +121,10 @@ export default function SettingsPage() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        await new Promise(resolve => setTimeout(resolve, 200)); // Short delay for UX
         setImportProgress(25);
+        setImportMessage('Processando arquivo...');
+        
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -129,12 +132,16 @@ export default function SettingsPage() {
         
         const json = XLSX.utils.sheet_to_json<any>(worksheet, {
           raw: false,
-          dateNF: 'dd/mm/yyyy'
+          dateNF: 'dd/MM/yyyy'
         });
 
         if (json.length === 0) {
             throw new Error('O arquivo está vazio.');
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 200));
+        setImportProgress(50);
+        setImportMessage(`Encontrados ${json.length} itens. Validando dados...`);
 
         const firstItemKeys = Object.keys(json[0] as any);
         const missingFields = requiredFields.filter(field => !firstItemKeys.includes(field as string));
@@ -142,9 +149,6 @@ export default function SettingsPage() {
         if (missingFields.length > 0) {
           throw new Error(`Arquivo inválido. Colunas faltando: ${missingFields.join(', ')}`);
         }
-        
-        setImportProgress(50);
-        setImportMessage(`Processando ${json.length} itens...`);
         
         let processedData;
         if (isProductImport) {
@@ -165,12 +169,14 @@ export default function SettingsPage() {
             processedData = json;
         }
         
-        setImportMessage(`Importando ${processedData.length} itens...`);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        setImportMessage(`Iniciando importação de ${processedData.length} itens...`);
         
-        const onProgress = (progress: number) => {
-            const baseProgress = 50;
-            const remainingProgress = 50;
-            setImportProgress(baseProgress + (progress * remainingProgress));
+        const onProgress = (progress: {total: number, processed: number}) => {
+            const baseProgress = 50; // Starts after file processing
+            const importProgress = (progress.processed / progress.total) * 50;
+            setImportProgress(baseProgress + importProgress);
+            setImportMessage(`Salvando ${progress.processed} de ${progress.total} itens...`);
         };
         
         await importFunction(processedData as T[], onProgress);
@@ -195,6 +201,7 @@ export default function SettingsPage() {
         setTimeout(() => {
           setIsImporting(false);
           setImportMessage('');
+          setImportProgress(0);
         }, 3000);
       }
     };
@@ -441,3 +448,5 @@ const format = (date: Date, formatStr: string) => {
     }
     return date.toISOString(); // fallback
 };
+
+    
