@@ -24,13 +24,13 @@ interface DataContextType {
   updateProduct: (productToUpdate: Product) => Promise<void>;
   deleteProduct: (productCode: string, productBatch: string) => Promise<void>;
   deleteExpiredProducts: () => Promise<void>;
-  importProducts: (products: Product[], onProgress?: (progress: {total: number, processed: number}) => void) => Promise<void>;
+  importProducts: (products: any[], onProgress?: (progress: {total: number, processed: number}) => void) => Promise<void>;
   catalog: CatalogItem[];
   setCatalog: (catalog: CatalogItem[]) => void;
   addCatalogItem: (item: CatalogItem) => Promise<void>;
   updateCatalogItem: (itemToUpdate: CatalogItem) => Promise<void>;
   deleteCatalogItem: (itemCode: string) => Promise<void>;
-  importCatalog: (items: CatalogItem[], onProgress?: (progress: {total: number, processed: number}) => void) => Promise<void>;
+  importCatalog: (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => Promise<void>;
   reportAuthor: string | null;
   setReportAuthor: (author: string) => void;
   splashImage: string | null;
@@ -234,16 +234,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const importCatalog = async (items: CatalogItem[], onProgress?: (progress: {total: number, processed: number}) => void) => {
+  const importCatalog = async (items: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     const existingCodes = new Set(catalog.map(c => c.code));
     const newItemsToCommit: CatalogItem[] = [];
 
     items.forEach(item => {
+      // Basic validation
+      if (!item.code || !item.name) return;
       if (!existingCodes.has(item.code)) {
         const docRef = doc(collection(db, 'catalog'));
-        const newItem = { ...item, id: docRef.id };
+        const newItem: CatalogItem = {
+          id: docRef.id,
+          code: String(item.code),
+          name: String(item.name),
+          category: String(item.category || ''),
+        };
         newItemsToCommit.push(newItem);
-        existingCodes.add(item.code); 
+        existingCodes.add(item.code);
       }
     });
     
@@ -269,20 +276,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const importProducts = async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
-    let processedData;
+    let processedData: Product[];
     try {
-        processedData = productsToImport.map(item => {
+        processedData = productsToImport.map((item, index) => {
             if (!item.expirationDate || typeof item.expirationDate !== 'string') {
-                throw new Error(`Data de vencimento inválida ou ausente para o produto ${item.name || item.code}`);
+                throw new Error(`Data de vencimento inválida ou ausente para o produto na linha ${index + 2}`);
+            }
+            if (!item.code || !item.name) {
+                throw new Error(`Código ou nome ausente para o produto na linha ${index + 2}`);
             }
             const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
             if (isNaN(parsedDate.getTime())) {
-                throw new Error(`Formato de data inválido para "${item.expirationDate}" no produto ${item.name || item.code}. Use DD/MM/AAAA.`);
+                throw new Error(`Formato de data inválido "${item.expirationDate}" para o produto na linha ${index + 2}. Use DD/MM/AAAA.`);
             }
             const docRef = doc(collection(db, 'products'));
             return {
-                ...item,
                 id: docRef.id,
+                code: String(item.code),
+                name: String(item.name),
+                quantity: Number(item.quantity || 0),
+                category: String(item.category || ''),
+                batch: String(item.batch || ''),
                 expirationDate: parsedDate.toISOString(),
             };
         });
@@ -339,5 +353,3 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     </DataContext.Provider>
   );
 };
-
-    

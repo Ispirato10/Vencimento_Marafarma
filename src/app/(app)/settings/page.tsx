@@ -428,5 +428,3 @@ const format = (date: Date, formatStr: string) => {
     }
     return date.toISOString(); // fallback
 };
-
-    
