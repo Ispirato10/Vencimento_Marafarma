@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useContext, useState } from 'react';
@@ -107,7 +108,8 @@ export default function SettingsPage() {
    const processImportFile = async <T,>(
     file: File,
     requiredFields: string[],
-    importFunction: (data: T[], onProgress: (progress: number) => void) => Promise<void>
+    importFunction: (data: T[], onProgress: (progress: number) => void) => Promise<void>,
+    isProductImport: boolean = false
   ) => {
     setIsImporting(true);
     setImportProgress(0);
@@ -122,7 +124,7 @@ export default function SettingsPage() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        const json = XLSX.utils.sheet_to_json<T>(worksheet, {
+        const json = XLSX.utils.sheet_to_json<any>(worksheet, {
           raw: false,
           dateNF: 'dd/mm/yyyy'
         });
@@ -136,25 +138,40 @@ export default function SettingsPage() {
           }
         }
         
-        setImportProgress(50);
-        setImportMessage(`Importando ${json.length} itens...`);
+        let processedData = json;
+        if (isProductImport) {
+            processedData = json.map(item => {
+                if (!item.expirationDate || typeof item.expirationDate !== 'string') {
+                    throw new Error(`Data de vencimento inválida para o produto ${item.name || item.code}`);
+                }
+                const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
+                if (isNaN(parsedDate.getTime())) {
+                    throw new Error(`Formato de data inválido para "${item.expirationDate}" no produto ${item.name || item.code}. Use DD/MM/AAAA.`);
+                }
+                return {
+                    ...item,
+                    expirationDate: parsedDate.toISOString(),
+                };
+            });
+        }
         
-        // This function will be called by the import logic to update the UI
+        setImportProgress(50);
+        setImportMessage(`Importando ${processedData.length} itens...`);
+        
         const onProgress = (progress: number) => {
-            // progress is a value from 0 to 1, representing batch completion
             const baseProgress = 50;
             const remainingProgress = 50;
             setImportProgress(baseProgress + (progress * remainingProgress));
         };
         
-        await importFunction(json, onProgress);
+        await importFunction(processedData as T[], onProgress);
         
         setImportProgress(100);
         setImportMessage('Importação Concluída!');
 
         toast({
           title: 'Importação Concluída!',
-          description: `${json.length} itens foram importados com sucesso.`,
+          description: `${processedData.length} itens foram importados com sucesso.`,
           variant: 'accent',
         });
       } catch (error: any) {
@@ -187,25 +204,7 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     const requiredFields = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
-    
-    const wrappedImportFunction = async (data: any[], onProgress: (p: number) => void) => {
-      const parsedData = data.map(item => {
-        if (!item.expirationDate || typeof item.expirationDate !== 'string') {
-            throw new Error(`Data de vencimento inválida para o produto ${item.name || item.code}`);
-        }
-        const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
-         if (isNaN(parsedDate.getTime())) {
-          throw new Error(`Formato de data inválido para "${item.expirationDate}" no produto ${item.name || item.code}. Use DD/MM/AAAA.`);
-        }
-        return {
-          ...item,
-          expirationDate: parsedDate.toISOString(),
-        };
-      });
-      await importProducts(parsedData, onProgress);
-    };
-
-    processImportFile<Product>(file, requiredFields, wrappedImportFunction as any);
+    processImportFile<Product>(file, requiredFields, importProducts, true);
     if(event.target) event.target.value = '';
   };
 
@@ -396,3 +395,5 @@ const format = (date: Date, formatStr: string) => {
     }
     return date.toISOString(); // fallback
 };
+
+    
