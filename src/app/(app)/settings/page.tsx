@@ -4,7 +4,9 @@
 import { useRef, useContext, useState } from 'react';
 import { FileUp, FileDown, Trash2, ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { format, parse, isPast } from 'date-fns';
+import { isPast } from 'date-fns';
+import { parse as dateParse } from 'date-fns';
+
 
 import { Button } from '@/components/ui/button';
 import {
@@ -66,7 +68,7 @@ export default function SettingsPage() {
     }
     const dataToExport = products.map(p => ({
       ...p,
-      expirationDate: format(new Date(p.expirationDate), 'yyyy-MM-dd'),
+      expirationDate: format(new Date(p.expirationDate), 'dd/MM/yyyy'),
       id: undefined, // Remove ID
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -164,14 +166,25 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     const requiredFields = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
-    const importFunction = async (data: any[]) => {
-      const parsedData = data.map(item => ({
-        ...item,
-        expirationDate: parse(item.expirationDate, 'yyyy-MM-dd', new Date()).toISOString(),
-      }));
+    
+    const wrappedImportFunction = async (data: any[]) => {
+      const parsedData = data.map(item => {
+        if (!item.expirationDate || typeof item.expirationDate !== 'string') {
+            throw new Error(`Data de vencimento inválida para o produto ${item.name || item.code}`);
+        }
+        const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
+         if (isNaN(parsedDate.getTime())) {
+          throw new Error(`Formato de data inválido para "${item.expirationDate}" no produto ${item.name || item.code}. Use DD/MM/AAAA.`);
+        }
+        return {
+          ...item,
+          expirationDate: parsedDate.toISOString(),
+        };
+      });
       await importProducts(parsedData);
     };
-    processImportFile<Product>(file, requiredFields, importFunction as any);
+
+    processImportFile<Product>(file, requiredFields, wrappedImportFunction as any);
     if(event.target) event.target.value = '';
   };
 
@@ -277,7 +290,7 @@ export default function SettingsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
-                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">quantity</code>, <code className="bg-muted px-1 py-0.5 rounded">category</code>, <code className="bg-muted px-1 py-0.5 rounded">batch</code>, <code className="bg-muted px-1 py-0.5 rounded">expirationDate</code>. A data deve estar no formato <code className="bg-muted px-1 py-0.5 rounded">AAAA-MM-DD</code>.
+                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">quantity</code>, <code className="bg-muted px-1 py-0.5 rounded">category</code>, <code className="bg-muted px-1 py-0.5 rounded">batch</code>, e <code className="bg-muted px-1 py-0.5 rounded">expirationDate</code>. A data deve estar no formato <code className="bg-muted px-1 py-0.5 rounded">DD/MM/AAAA</code>.
                   </p>
                   <div className="flex gap-2 self-start">
                       <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
@@ -299,7 +312,7 @@ export default function SettingsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
-                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">category</code>.
+                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, e <code className="bg-muted px-1 py-0.5 rounded">category</code>.
                   </p>
                   <div className="flex gap-2 self-start">
                       <Button variant="outline" size="sm" onClick={() => catalogImportRef.current?.click()}>
@@ -349,3 +362,15 @@ export default function SettingsPage() {
     </>
   );
 }
+
+// Helper to format date for export
+const format = (date: Date, formatStr: string) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+
+    if (formatStr === 'dd/MM/yyyy') {
+        return `${day}/${month}/${year}`;
+    }
+    return date.toISOString(); // fallback
+};

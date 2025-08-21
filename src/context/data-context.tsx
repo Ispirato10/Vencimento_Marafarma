@@ -9,10 +9,9 @@ import {
   setDoc,
   deleteDoc,
   query,
-  where,
   writeBatch,
 } from 'firebase/firestore';
-import { isPast } from 'date-fns';
+import { isPast, parse } from 'date-fns';
 
 import type { Product, CatalogItem } from '@/types';
 import { db } from '@/lib/firebase';
@@ -93,19 +92,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
-        toast({
-          variant: 'destructive',
-          title: 'Configuração do Firebase ausente',
-          description: 'As credenciais do Firebase não foram encontradas. Verifique o arquivo .env.local.exemplo.',
-          duration: 9000,
-        });
-        // Clear local data if Firebase isn't configured to avoid confusion
-        setCatalogState([]);
-        setProductsState([]);
-        return;
-      }
-
       const catalogQuery = query(collection(db, 'catalog'));
       const catalogSnapshot = await getDocs(catalogQuery);
       const catalogData = catalogSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as CatalogItem));
@@ -250,27 +236,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const importCatalog = async (items: CatalogItem[]) => {
     const batch = writeBatch(db);
     const newItems: CatalogItem[] = [];
+    const existingCodes = new Set(catalog.map(c => c.code));
+
     items.forEach(item => {
-      const docRef = doc(collection(db, 'catalog'));
-      const newItem = { ...item, id: docRef.id };
-      batch.set(docRef, newItem);
-      newItems.push(newItem);
+      if (!existingCodes.has(item.code)) {
+        const docRef = doc(collection(db, 'catalog'));
+        const newItem = { ...item, id: docRef.id };
+        batch.set(docRef, newItem);
+        newItems.push(newItem);
+        existingCodes.add(item.code);
+      }
     });
     await batch.commit();
-    setCatalogState(prev => [...prev, ...newItems]); // Consider replacing instead of merging
+    setCatalogState(prev => [...prev, ...newItems]);
   };
 
-  const importProducts = async (products: Product[]) => {
+  const importProducts = async (productsToImport: Product[]) => {
     const batch = writeBatch(db);
     const newProducts: Product[] = [];
-    products.forEach(product => {
+    productsToImport.forEach(product => {
       const docRef = doc(collection(db, 'products'));
       const newProduct = { ...product, id: docRef.id };
       batch.set(docRef, newProduct);
       newProducts.push(newProduct);
     });
     await batch.commit();
-    setProductsState(prev => [...prev, ...newProducts]); // Consider replacing instead of merging
+    setProductsState(prev => [...prev, ...newProducts]);
   };
 
   return (
