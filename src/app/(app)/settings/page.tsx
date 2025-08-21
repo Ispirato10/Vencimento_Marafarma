@@ -2,9 +2,10 @@
 "use client";
 
 import { useRef, useContext, useState } from 'react';
-import { FileUp, FileDown, Trash2, ImageIcon } from 'lucide-react';
+import { FileUp, FileDown, Trash2, ImageIcon, Wifi } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { isPast, parse as dateParse } from 'date-fns';
+import { getDocs, query, collection, limit } from 'firebase/firestore';
 
 
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { ThemeToggle } from '@/app/(app)/_components/theme-toggle';
 import { useToast } from '@/hooks/use-toast';
 import type { CatalogItem, Product } from '@/types';
 import { DataContext } from '@/context/data-context';
+import { db } from '@/lib/firebase';
 import { DeleteExpiredDialog } from './_components/delete-expired-dialog';
 import { Separator } from '@/components/ui/separator';
 
@@ -46,6 +48,7 @@ export default function SettingsPage() {
   const [importProgress, setImportProgress] = useState(0);
   const [importMessage, setImportMessage] = useState('');
   const [isDeleteExpiredDialogOpen, setIsDeleteExpiredDialogOpen] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   
   const expiredProductsCount = products.filter(p => isPast(new Date(p.expirationDate))).length;
 
@@ -129,20 +132,25 @@ export default function SettingsPage() {
           dateNF: 'dd/mm/yyyy'
         });
 
-        if (json.length > 0) {
-          const firstItemKeys = Object.keys(json[0] as any);
-          const missingFields = requiredFields.filter(field => !firstItemKeys.includes(field as string));
+        if (json.length === 0) {
+            throw new Error('O arquivo está vazio.');
+        }
 
-          if (missingFields.length > 0) {
-            throw new Error(`Arquivo inválido. Colunas faltando: ${missingFields.join(', ')}`);
-          }
+        const firstItemKeys = Object.keys(json[0] as any);
+        const missingFields = requiredFields.filter(field => !firstItemKeys.includes(field as string));
+
+        if (missingFields.length > 0) {
+          throw new Error(`Arquivo inválido. Colunas faltando: ${missingFields.join(', ')}`);
         }
         
-        let processedData = json;
+        setImportProgress(50);
+        setImportMessage(`Processando ${json.length} itens...`);
+        
+        let processedData;
         if (isProductImport) {
             processedData = json.map(item => {
                 if (!item.expirationDate || typeof item.expirationDate !== 'string') {
-                    throw new Error(`Data de vencimento inválida para o produto ${item.name || item.code}`);
+                    throw new Error(`Data de vencimento inválida ou ausente para o produto ${item.name || item.code}`);
                 }
                 const parsedDate = dateParse(item.expirationDate, 'dd/MM/yyyy', new Date());
                 if (isNaN(parsedDate.getTime())) {
@@ -153,9 +161,10 @@ export default function SettingsPage() {
                     expirationDate: parsedDate.toISOString(),
                 };
             });
+        } else {
+            processedData = json;
         }
         
-        setImportProgress(50);
         setImportMessage(`Importando ${processedData.length} itens...`);
         
         const onProgress = (progress: number) => {
@@ -206,6 +215,28 @@ export default function SettingsPage() {
     const requiredFields = ['code', 'name', 'quantity', 'category', 'batch', 'expirationDate'];
     processImportFile<Product>(file, requiredFields, importProducts, true);
     if(event.target) event.target.value = '';
+  };
+  
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    try {
+        const testQuery = query(collection(db, 'catalog'), limit(5));
+        const querySnapshot = await getDocs(testQuery);
+        const count = querySnapshot.size;
+        toast({
+            variant: 'accent',
+            title: 'Conexão Bem-Sucedida!',
+            description: `O Firebase respondeu corretamente. ${count} itens lidos do catálogo.`
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Falha na Conexão com o Firebase',
+            description: `Não foi possível ler dados. Erro: ${error.message}`
+        });
+    } finally {
+        setIsTestingConnection(false);
+    }
   };
 
 
@@ -263,6 +294,21 @@ export default function SettingsPage() {
                 Alterar Imagem
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+       <Card>
+        <CardHeader>
+          <CardTitle>Diagnóstico de Conexão</CardTitle>
+          <CardDescription>
+            Use este botão para verificar se a aplicação está se comunicando corretamente com o banco de dados Firebase.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+           <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection}>
+              <Wifi className="mr-2 h-4 w-4" />
+              {isTestingConnection ? 'Testando...' : 'Testar Conexão com Firebase'}
+           </Button>
         </CardContent>
       </Card>
       
@@ -395,5 +441,3 @@ const format = (date: Date, formatStr: string) => {
     }
     return date.toISOString(); // fallback
 };
-
-    
