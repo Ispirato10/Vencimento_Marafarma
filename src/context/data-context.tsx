@@ -143,11 +143,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
  const addProduct = useCallback(async (product: Omit<Product, 'id'>): Promise<void> => {
     console.log("Attempting to add product...", product);
     try {
-        // Primeiro, adiciona o documento ao Firestore.
         const docRef = await addDoc(collection(db, 'products'), product);
         console.log("Product added to Firestore with ID:", docRef.id);
-
-        // Depois, atualiza o estado local com o novo produto, incluindo o ID retornado.
         const newProduct = { ...product, id: docRef.id };
         setProductsState(prev => [...prev, newProduct].sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()));
         console.log("Local state updated successfully.");
@@ -158,7 +155,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             title: 'Erro ao Salvar Produto',
             description: `Falha ao salvar no Firebase: ${error.message}. Verifique as permissões do Firestore.`,
         });
-        // Propaga o erro para que o formulário saiba que a submissão falhou.
         throw error;
     }
 }, []);
@@ -221,7 +217,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     
     console.log("Attempting to add catalog item...", item);
     try {
-        // Usa o `code` como ID do documento para evitar duplicatas.
         await setDoc(doc(db, 'catalog', item.code), item);
         const newItem = { ...item, id: item.code };
         setCatalogState(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
@@ -272,13 +267,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     let successCount = 0;
     let failuresCount = 0;
     const totalCount = itemsToImport.length;
-    const importedItemsForState: CatalogItem[] = [];
+    const allImportedItems: CatalogItem[] = [];
 
     let batch = writeBatch(db);
     let batchCount = 0;
-    
-    for (const item of itemsToImport) {
+
+    for (let i = 0; i < itemsToImport.length; i++) {
+        const item = itemsToImport[i];
         const code = String(item.code || '').trim();
+
         if (!code || !item.name) {
             failuresCount++;
             continue;
@@ -290,26 +287,25 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             category: String(item.category || ''),
         };
 
-        // Usa set com o código como ID para criar ou sobrescrever.
-        const docRef = doc(db, 'catalog', code); 
+        const docRef = doc(db, 'catalog', code);
         batch.set(docRef, newItemData, { merge: true });
         batchCount++;
+        allImportedItems.push({ ...newItemData, id: code });
 
-        importedItemsForState.push({ ...newItemData, id: code });
-
-        if (batchCount >= BATCH_SIZE) {
+        // Commit batch when it's full or when it's the last item
+        if (batchCount === BATCH_SIZE || i === itemsToImport.length - 1) {
             try {
                 await batch.commit();
                 successCount += batchCount;
                 onProgress?.({ total: totalCount, processed: successCount });
-                batch = writeBatch(db); // Inicia um novo lote
+                batch = writeBatch(db); // Start a new batch
                 batchCount = 0;
-            } catch (error) {
+            } catch (error: any) {
                 console.error(`Error committing catalog batch:`, error);
                 failuresCount += batchCount;
-                batch = writeBatch(db); // Garante um novo lote limpo após a falha
+                batch = writeBatch(db); // Reset batch after error
                 batchCount = 0;
-                // Para a execução se a cota for excedida
+                
                 if ((error as any).code === 'resource-exhausted') {
                     toast({
                         variant: 'destructive',
@@ -317,47 +313,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                         description: `A importação foi pausada. ${successCount} de ${totalCount} itens foram salvos. Você pode continuar amanhã.`,
                         duration: 9000,
                     });
-                    // Atualiza o estado com o que foi importado até agora
-                     setCatalogState(prev => {
-                        const prevMap = new Map(prev.map(item => [item.code, item]));
-                        importedItemsForState.forEach(item => prevMap.set(item.code, item));
-                        return Array.from(prevMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-                    });
-                    return { success: successCount, failures: failuresCount, total: totalCount };
+                    // Stop the import process
+                    break;
                 }
             }
         }
     }
 
-    // Commita o último lote, se houver
-    if (batchCount > 0) {
-        try {
-            await batch.commit();
-            successCount += batchCount;
-            onProgress?.({ total: totalCount, processed: successCount });
-        } catch (error) {
-            console.error(`Error committing final catalog batch:`, error);
-            failuresCount += batchCount;
-             if ((error as any).code === 'resource-exhausted') {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Cota do Firebase Excedida',
-                    description: `A importação foi pausada. ${successCount} de ${totalCount} itens foram salvos. Você pode continuar amanhã.`,
-                    duration: 9000,
-                });
-            }
-        }
-    }
-
-    // Atualiza o estado local uma vez no final com todos os itens importados com sucesso
+    // Final state update
     setCatalogState(prev => {
         const prevMap = new Map(prev.map(item => [item.code, item]));
-        importedItemsForState.forEach(item => prevMap.set(item.code, item));
+        allImportedItems.forEach(item => prevMap.set(item.code, item));
         return Array.from(prevMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     });
 
     return { success: successCount, failures: failuresCount, total: totalCount };
 }, []);
+
 
   const importProducts = useCallback(async (productsToImport: any[], onProgress?: (progress: {total: number, processed: number}) => void) => {
     let successCount = 0;
