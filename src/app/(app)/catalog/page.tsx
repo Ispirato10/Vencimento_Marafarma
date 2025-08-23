@@ -78,7 +78,7 @@ export default function CatalogPage() {
         return item.name.toLowerCase().includes(query);
       }
       if (searchType === 'code') {
-        return item.code.toLowerCase() === query;
+        return item.code.toLowerCase().includes(query);
       }
       return true;
     });
@@ -141,7 +141,7 @@ export default function CatalogPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
-                    placeholder={`Pesquisar por ${searchType === 'name' ? 'nome...' : 'código exato...'}`}
+                    placeholder={`Pesquisar por ${searchType === 'name' ? 'nome...' : 'código...'}`}
                     className="pl-8 sm:w-full"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
