@@ -39,9 +39,16 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
     let stream: MediaStream | null = null;
     const requestPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-        });
+        // Solicita permissão com restrições avançadas para a câmera do celular
+        const constraints = {
+          video: { 
+            facingMode: 'environment', // Prefere a câmera traseira
+            // @ts-ignore - focusMode é uma restrição válida mas nem sempre tipada
+            focusMode: 'continuous'   // Pede foco automático contínuo
+          }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
         if (ref.current) {
           ref.current.srcObject = stream;
         }
@@ -57,6 +64,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
 
     requestPermission();
 
+    // Função de limpeza para parar a câmera ao desmontar o componente
     return () => {
       stream?.getTracks().forEach((track) => track.stop());
     };
