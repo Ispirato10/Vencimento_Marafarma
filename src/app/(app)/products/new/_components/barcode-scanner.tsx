@@ -39,9 +39,15 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
     let stream: MediaStream | null = null;
     const requestPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-        });
+        const constraints = {
+          video: { 
+            facingMode: 'environment',
+            // @ts-ignore - focusMode is a valid but not fully typed constraint
+            focusMode: 'continuous' 
+          }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
         if (ref.current) {
           ref.current.srcObject = stream;
         }
@@ -57,6 +63,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
 
     requestPermission();
 
+    // Cleanup function to stop the camera stream when the component unmounts
     return () => {
       stream?.getTracks().forEach((track) => track.stop());
     };
