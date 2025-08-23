@@ -40,6 +40,8 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   });
 
   useEffect(() => {
+    let stream: MediaStream | null = null;
+    
     const requestPermission = async () => {
       try {
         const constraints = {
@@ -49,7 +51,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
             focusMode: 'continuous'
           }
         };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         if (ref.current) {
           ref.current.srcObject = stream;
@@ -58,6 +60,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
         const [videoTrack] = stream.getVideoTracks();
         // @ts-ignore
         const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+        // @ts-ignore
         if (capabilities.torch) {
             setIsTorchSupported(true);
         }
@@ -67,16 +70,26 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
       } catch (err) {
         console.error('Camera permission error:', err);
         setHasPermission(false);
-        setError(
-          'A permissão para acessar a câmera foi negada. Verifique as configurações do seu navegador.'
-        );
+        if (err instanceof Error && err.name === 'NotAllowedError') {
+             setError(
+                'A permissão para acessar a câmera foi negada. Verifique as configurações do seu navegador.'
+             );
+        } else {
+             setError('A câmera não pôde ser iniciada. Verifique se não está sendo usada por outro aplicativo.');
+        }
       }
     };
 
     requestPermission();
 
     return () => {
-      mediaStream?.getTracks().forEach((track) => track.stop());
+      // This is the cleanup function that will be called when the component unmounts
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+      }
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref]);
