@@ -56,7 +56,7 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
 
   const onSubmit = (data: ProductFormValues) => {
     const parsedDate = parse(data.expirationDate, 'dd/MM/yyyy', new Date());
-    onSave({ ...data, expirationDate: parsedDate.toISOString() });
+    onSave({ ...product, ...data, expirationDate: parsedDate.toISOString() });
   };
   
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +74,19 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="code"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Código de Barras</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly disabled className="bg-muted/50" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
             control={form.control}
@@ -159,3 +172,4 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
     </Form>
   );
 }
+
