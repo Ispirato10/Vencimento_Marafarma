@@ -1,9 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
-import { Barcode, X } from 'lucide-react';
-import { BrowserMultiFormatReader } from '@zxing/library';
+import { useState, useEffect, useRef } from 'react';
+import { Barcode } from 'lucide-react';
 import { useZxing } from 'react-zxing';
 
 import {
@@ -11,9 +10,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface BarcodeScannerProps {
   onScan: (result: string) => void;
@@ -21,29 +19,48 @@ interface BarcodeScannerProps {
 }
 
 export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { ref } = useZxing({
+    paused: !hasPermission,
     onDecodeResult(result) {
       onScan(result.getText());
     },
     onError(err) {
-      if (err instanceof Error && err.name !== 'NotFoundException') {
-          console.error('Barcode scanner error:', err);
-          setError('Não foi possível iniciar a câmera. Verifique as permissões no seu navegador.');
-      }
+       if (err instanceof Error && err.name !== 'NotFoundException') {
+          console.error('ZXing Error:', err);
+          setError('Ocorreu um erro ao tentar escanear.');
+       }
     },
-    constraints: { 
-        video: { 
-            facingMode: 'environment' 
-        } 
-    },
-    timeBetweenDecodingAttempts: 300,
-    reader: new BrowserMultiFormatReader(undefined, {
-      delayBetweenScanAttempts: 300,
-      delayBetweenScanSuccess: 500,
-    })
   });
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const requestPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+        });
+        if (ref.current) {
+          ref.current.srcObject = stream;
+        }
+        setHasPermission(true);
+      } catch (err) {
+        console.error('Camera permission error:', err);
+        setHasPermission(false);
+        setError(
+          'A permissão para acessar a câmera foi negada. Verifique as configurações do seu navegador.'
+        );
+      }
+    };
+
+    requestPermission();
+
+    return () => {
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [ref]);
 
   return (
     <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -53,17 +70,27 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
         </DialogHeader>
         <div className="relative aspect-video bg-black">
           <video ref={ref} className="h-full w-full object-cover" />
-          <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <div className="h-1/2 w-5/6 rounded-lg border-2 border-dashed border-white/50" />
-          </div>
-          {error && (
-            <div className="absolute bottom-0 w-full bg-destructive/80 p-2 text-center text-sm text-destructive-foreground">
-              {error}
+          {hasPermission && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <div className="h-1/2 w-5/6 rounded-lg border-2 border-dashed border-white/50" />
             </div>
           )}
         </div>
-        <div className="p-6 pt-2 text-center text-sm text-muted-foreground">
-          Aponte a câmera para o código de barras do produto.
+        <div className="p-6 pt-2 space-y-4">
+            {hasPermission === false && (
+                 <Alert variant="destructive">
+                    <Barcode className="h-4 w-4" />
+                    <AlertTitle>Acesso à Câmera Negado</AlertTitle>
+                    <AlertDescription>
+                        {error || 'Por favor, habilite a permissão da câmera nas configurações do seu navegador para escanear.'}
+                    </AlertDescription>
+                </Alert>
+            )}
+             {hasPermission && !error && (
+                 <p className="text-center text-sm text-muted-foreground">
+                    Aponte a câmera para o código de barras do produto.
+                </p>
+             )}
         </div>
       </DialogContent>
     </Dialog>
