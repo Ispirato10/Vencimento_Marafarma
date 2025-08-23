@@ -96,3 +96,4 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
     </Dialog>
   );
 }
+
