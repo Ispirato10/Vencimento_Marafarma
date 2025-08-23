@@ -44,7 +44,7 @@ export function EditCatalogItemForm({ item, onSave, onCancel, isSaving }: EditCa
   });
 
   const onSubmit = (data: CatalogItemFormValues) => {
-    onSave(data);
+    onSave({ ...item, ...data });
   };
 
   return (
@@ -57,7 +57,7 @@ export function EditCatalogItemForm({ item, onSave, onCancel, isSaving }: EditCa
             <FormItem>
                 <FormLabel>Código</FormLabel>
                 <FormControl>
-                <Input {...field} readOnly disabled />
+                <Input {...field} readOnly disabled className="bg-muted/50" />
                 </FormControl>
                 <FormMessage />
             </FormItem>
