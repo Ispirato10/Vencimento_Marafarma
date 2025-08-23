@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Barcode, Zap } from 'lucide-react';
 import { useZxing } from 'react-zxing';
 
@@ -22,12 +22,12 @@ interface BarcodeScannerProps {
 export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [isTorchSupported, setIsTorchSupported] = useState(false);
+  const videoStreamRef = useRef<MediaStream | null>(null);
 
   const { ref } = useZxing({
-    paused: !hasPermission,
+    paused: hasPermission === false,
     onDecodeResult(result) {
       onScan(result.getText());
     },
@@ -39,79 +39,87 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
     },
   });
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    
-    const requestPermission = async () => {
-      try {
-        const constraints = {
-          video: { 
-            facingMode: 'environment',
-            // @ts-ignore
-            focusMode: 'continuous'
-          }
-        };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        if (ref.current) {
-          ref.current.srcObject = stream;
-        }
-
-        const [videoTrack] = stream.getVideoTracks();
-        // @ts-ignore
-        const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-        // @ts-ignore
-        if (capabilities.torch) {
-            setIsTorchSupported(true);
-        }
-
-        setMediaStream(stream);
-        setHasPermission(true);
-      } catch (err) {
-        console.error('Camera permission error:', err);
-        setHasPermission(false);
-        if (err instanceof Error && err.name === 'NotAllowedError') {
-             setError(
-                'A permissão para acessar a câmera foi negada. Verifique as configurações do seu navegador.'
-             );
-        } else {
-             setError('A câmera não pôde ser iniciada. Verifique se não está sendo usada por outro aplicativo.');
-        }
-      }
-    };
-
-    requestPermission();
-
-    return () => {
-      // This is the cleanup function that will be called when the component unmounts
-      if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-      }
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref]);
-
-  const toggleTorch = async () => {
-    if (mediaStream && isTorchSupported) {
-      const [videoTrack] = mediaStream.getVideoTracks();
-      try {
-        await videoTrack.applyConstraints({
-          // @ts-ignore
-          advanced: [{ torch: !isTorchOn }],
+  const stopVideoStream = useCallback(() => {
+    if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach((track) => {
+            track.stop();
         });
-        setIsTorchOn(!isTorchOn);
-      } catch (err) {
-        console.error('Error toggling torch:', err);
-        setError('Não foi possível controlar a lanterna da câmera.');
-      }
+        videoStreamRef.current = null;
     }
+  }, []);
+  
+  const startVideoStream = useCallback(async (torchEnabled: boolean) => {
+      stopVideoStream(); // Stop any existing stream
+      try {
+          const constraints: MediaStreamConstraints = {
+              video: { 
+                  facingMode: 'environment',
+                  // @ts-ignore
+                  focusMode: 'continuous',
+                  // @ts-ignore
+                  torch: torchEnabled,
+              }
+          };
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          videoStreamRef.current = stream;
+
+          if (ref.current) {
+              ref.current.srcObject = stream;
+          }
+
+          // Check for torch support after stream is active
+          const [videoTrack] = stream.getVideoTracks();
+          // @ts-ignore
+          const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+          // @ts-ignore
+          if (capabilities.torch) {
+              setIsTorchSupported(true);
+          }
+          
+          setHasPermission(true);
+          setError(null);
+
+      } catch (err) {
+          console.error('Camera permission or start error:', err);
+          setHasPermission(false);
+          if (err instanceof Error) {
+              if (err.name === 'NotAllowedError') {
+                   setError('A permissão para acessar a câmera foi negada. Verifique as configurações do seu navegador.');
+              } else if (err.name === 'OverconstrainedError' && torchEnabled) {
+                  // Fallback if torch is not supported
+                  setIsTorchSupported(false);
+                  setIsTorchOn(false);
+                  await startVideoStream(false); // Retry without torch
+              }
+              else {
+                   setError('A câmera não pôde ser iniciada. Verifique se não está sendo usada por outro aplicativo.');
+              }
+          }
+      }
+  }, [ref, stopVideoStream]);
+
+  useEffect(() => {
+      startVideoStream(isTorchOn);
+
+      return () => {
+          stopVideoStream();
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleToggleTorch = async () => {
+      const newTorchState = !isTorchOn;
+      setIsTorchOn(newTorchState);
+      await startVideoStream(newTorchState);
+  };
+  
+  const handleDialogClose = () => {
+      stopVideoStream();
+      onClose();
   };
 
   return (
-    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && handleDialogClose()}>
       <DialogContent className="sm:max-w-[425px] p-0">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Escanear Código de Barras</DialogTitle>
@@ -127,7 +135,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
                  <div className="absolute bottom-4 right-4 z-20">
                     <Button 
                         size="icon" 
-                        onClick={toggleTorch}
+                        onClick={handleToggleTorch}
                         variant={isTorchOn ? "default" : "outline"}
                     >
                         <Zap className="h-5 w-5" />
@@ -137,9 +145,8 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
               )}
             </>
           )}
-        </div>
-        <div className="p-6 pt-2 space-y-4">
-            {hasPermission === false && (
+           {hasPermission === false && (
+             <div className="absolute inset-0 flex items-center justify-center p-6">
                  <Alert variant="destructive">
                     <Barcode className="h-4 w-4" />
                     <AlertTitle>Acesso à Câmera Negado</AlertTitle>
@@ -147,8 +154,11 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
                         {error || 'Por favor, habilite a permissão da câmera nas configurações do seu navegador para escanear.'}
                     </AlertDescription>
                 </Alert>
+            </div>
             )}
-             {hasPermission && !error && (
+        </div>
+        <div className="p-6 pt-2 space-y-4">
+            {hasPermission && !error && (
                  <p className="text-center text-sm text-muted-foreground">
                     Aponte a câmera para o código de barras do produto.
                 </p>
