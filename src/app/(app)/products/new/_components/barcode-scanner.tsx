@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Barcode } from 'lucide-react';
+import { Barcode, Zap } from 'lucide-react';
 import { useZxing } from 'react-zxing';
 
 import {
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 interface BarcodeScannerProps {
   onScan: (result: string) => void;
@@ -21,6 +22,9 @@ interface BarcodeScannerProps {
 export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [isTorchOn, setIsTorchOn] = useState(false);
+  const [isTorchSupported, setIsTorchSupported] = useState(false);
 
   const { ref } = useZxing({
     paused: !hasPermission,
@@ -36,22 +40,29 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   });
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
     const requestPermission = async () => {
       try {
-        // Solicita permissão com restrições avançadas para a câmera do celular
         const constraints = {
           video: { 
-            facingMode: 'environment', // Prefere a câmera traseira
-            // @ts-ignore - focusMode é uma restrição válida mas nem sempre tipada
-            focusMode: 'continuous'   // Pede foco automático contínuo
+            facingMode: 'environment',
+            // @ts-ignore
+            focusMode: 'continuous'
           }
         };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         if (ref.current) {
           ref.current.srcObject = stream;
         }
+
+        const [videoTrack] = stream.getVideoTracks();
+        // @ts-ignore
+        const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+        if (capabilities.torch) {
+            setIsTorchSupported(true);
+        }
+
+        setMediaStream(stream);
         setHasPermission(true);
       } catch (err) {
         console.error('Camera permission error:', err);
@@ -64,11 +75,27 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
 
     requestPermission();
 
-    // Função de limpeza para parar a câmera ao desmontar o componente
     return () => {
-      stream?.getTracks().forEach((track) => track.stop());
+      mediaStream?.getTracks().forEach((track) => track.stop());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref]);
+
+  const toggleTorch = async () => {
+    if (mediaStream && isTorchSupported) {
+      const [videoTrack] = mediaStream.getVideoTracks();
+      try {
+        await videoTrack.applyConstraints({
+          // @ts-ignore
+          advanced: [{ torch: !isTorchOn }],
+        });
+        setIsTorchOn(!isTorchOn);
+      } catch (err) {
+        console.error('Error toggling torch:', err);
+        setError('Não foi possível controlar a lanterna da câmera.');
+      }
+    }
+  };
 
   return (
     <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -79,9 +106,23 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
         <div className="relative aspect-video bg-black">
           <video ref={ref} className="h-full w-full object-cover" />
           {hasPermission && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center">
-                <div className="h-1/2 w-5/6 rounded-lg border-2 border-dashed border-white/50" />
-            </div>
+            <>
+              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                  <div className="h-1/2 w-5/6 rounded-lg border-2 border-dashed border-white/50" />
+              </div>
+              {isTorchSupported && (
+                 <div className="absolute bottom-4 right-4 z-20">
+                    <Button 
+                        size="icon" 
+                        onClick={toggleTorch}
+                        variant={isTorchOn ? "default" : "outline"}
+                    >
+                        <Zap className="h-5 w-5" />
+                        <span className="sr-only">Ligar/Desligar Lanterna</span>
+                    </Button>
+                 </div>
+              )}
+            </>
           )}
         </div>
         <div className="p-6 pt-2 space-y-4">
@@ -98,6 +139,12 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
                  <p className="text-center text-sm text-muted-foreground">
                     Aponte a câmera para o código de barras do produto.
                 </p>
+             )}
+              {!!error && hasPermission && (
+                 <Alert variant="destructive">
+                    <AlertTitle>Erro no Scanner</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
              )}
         </div>
       </DialogContent>
