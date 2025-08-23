@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { parse } from 'date-fns';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Barcode } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { DataContext } from '@/context/data-context';
 import type { Product, CatalogItem } from '@/types';
+import { BarcodeScanner } from './barcode-scanner';
 
 const productFormSchema = z.object({
   code: z.string().min(1, 'Código é obrigatório.'),
@@ -57,6 +58,8 @@ export function ProductForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [isNewCatalogItem, setIsNewCatalogItem] = useState(false);
   const { catalog, addProduct, addCatalogItem } = useContext(DataContext);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
 
   // Refs for focus management
   const codeInputRef = useRef<HTMLInputElement>(null);
@@ -84,13 +87,11 @@ export function ProductForm() {
     codeInputRef.current?.focus();
   }, []);
 
-  const handleCodeBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
-    const code = e.target.value;
+  const findProductInCatalog = async (code: string) => {
     if (!code) return;
 
     setIsFetchingCatalog(true);
-    // Simulate network delay for user feedback
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300)); // Simulate network delay
     const catalogItem = catalog.find((item) => item.code === code);
     setIsFetchingCatalog(false);
 
@@ -113,7 +114,19 @@ export function ProductForm() {
       nameInputRef.current?.focus();
     }
   };
+
+
+  const handleCodeBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    findProductInCatalog(e.target.value);
+  };
   
+  const handleScanSuccess = (scannedCode: string) => {
+      form.setValue('code', scannedCode, { shouldValidate: true });
+      setIsScannerOpen(false);
+      // Trigger search after scanning
+      findProductInCatalog(scannedCode);
+  };
+
   const onSubmit = async (data: ProductFormValues) => {
     setIsSaving(true);
     try {
@@ -186,7 +199,6 @@ export function ProductForm() {
         if (nextFieldRef?.current) {
             nextFieldRef.current.focus();
         } else {
-            // Se não houver próximo campo, submeta o formulário
             submitButtonRef.current?.click();
         }
     }
@@ -194,6 +206,7 @@ export function ProductForm() {
 
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Novo Item</CardTitle>
@@ -211,7 +224,7 @@ export function ProductForm() {
                 <FormItem>
                   <FormLabel>Código de Barras</FormLabel>
                   <FormControl>
-                    <div className="relative">
+                    <div className="relative flex items-center gap-2">
                       <Input
                         placeholder="Digite ou escaneie o código"
                         {...field}
@@ -219,8 +232,18 @@ export function ProductForm() {
                         onBlur={handleCodeBlur}
                         onKeyDown={(e) => handleKeyDown(e, nameInputRef)}
                       />
+                       <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="md:hidden" // Only show on mobile/tablet
+                          onClick={() => setIsScannerOpen(true)}
+                        >
+                          <Barcode className="h-5 w-5" />
+                          <span className="sr-only">Escanear código de barras</span>
+                        </Button>
                       {isFetchingCatalog && (
-                        <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                        <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground md:right-14" />
                       )}
                     </div>
                   </FormControl>
@@ -337,5 +360,13 @@ export function ProductForm() {
         </form>
       </Form>
     </Card>
+
+    {isScannerOpen && (
+        <BarcodeScanner
+          onScan={handleScanSuccess}
+          onClose={() => setIsScannerOpen(false)}
+        />
+      )}
+    </>
   );
 }
