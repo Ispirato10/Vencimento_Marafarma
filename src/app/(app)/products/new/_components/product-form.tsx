@@ -283,7 +283,6 @@ export function ProductForm() {
                         {...field}
                         ref={categoryInputRef}
                         onKeyDown={(e) => handleKeyDown(e, quantityInputRef)}
-                        readOnly={!isNewCatalogItem && form.getValues('category') !== ''}
                        />
                     </FormControl>
                     <FormMessage />
