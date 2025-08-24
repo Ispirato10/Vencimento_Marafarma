@@ -155,7 +155,8 @@ export default function CatalogPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-             <Button
+             {searchType === 'code' && (
+              <Button
                 type="button"
                 variant="outline"
                 size="icon"
@@ -164,7 +165,8 @@ export default function CatalogPage() {
               >
                 <Barcode className="h-5 w-5" />
                 <span className="sr-only">Escanear código de barras</span>
-            </Button>
+              </Button>
+            )}
              <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
                 <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Buscar por" />

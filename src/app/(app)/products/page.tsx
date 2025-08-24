@@ -168,16 +168,18 @@ export default function ProductsPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-            <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setIsScannerOpen(true)}
-              >
-                <Barcode className="h-5 w-5" />
-                <span className="sr-only">Escanear código de barras</span>
-            </Button>
+            {searchType === 'code' && (
+              <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setIsScannerOpen(true)}
+                >
+                  <Barcode className="h-5 w-5" />
+                  <span className="sr-only">Escanear código de barras</span>
+              </Button>
+            )}
              <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
                 <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Buscar por" />
