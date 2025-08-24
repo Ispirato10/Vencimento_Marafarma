@@ -29,6 +29,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -58,6 +59,8 @@ function useDebounce(value: string, delay: number) {
   return debouncedValue;
 }
 
+const ITEMS_PER_PAGE = 15;
+
 export default function ProductsPage() {
   const { products, updateProduct, deleteProduct } = useContext(DataContext);
   const { toast } = useToast();
@@ -69,11 +72,13 @@ export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'code' | 'name'>('code');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const filteredProducts = useMemo(() => {
+    setCurrentPage(1); // Reset page when filter changes
     if (!debouncedSearchQuery) {
       return products;
     }
@@ -88,6 +93,13 @@ export default function ProductsPage() {
       return true;
     });
   }, [products, debouncedSearchQuery, searchType]);
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage]);
 
 
   const handleEditClick = (product: Product) => {
@@ -190,52 +202,82 @@ export default function ProductsPage() {
                 </SelectContent>
             </Select>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produto</TableHead>
-                <TableHead>Lote</TableHead>
-                <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                <TableHead className="text-right">Qtd.</TableHead>
-                <TableHead className="text-right">Vencimento</TableHead>
-                <TableHead className="w-[100px] text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product, index) => (
-                <TableRow key={`${product.code}-${product.batch}-${index}`}>
-                  <TableCell>
-                    <div className="font-medium">{product.name}</div>
-                    <div className="text-sm text-muted-foreground">{product.code}</div>
-                  </TableCell>
-                  <TableCell>{product.batch || 'N/A'}</TableCell>
-                  <TableCell className="hidden md:table-cell">{product.category || 'N/A'}</TableCell>
-                  <TableCell className="text-right">{product.quantity}</TableCell>
-                  <TableCell className="text-right">
-                    {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(product)}>
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Editar</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(product)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                         <span className="sr-only">Excluir</span>
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Lote</TableHead>
+                    <TableHead className="hidden md:table-cell">Categoria</TableHead>
+                    <TableHead className="text-right">Qtd.</TableHead>
+                    <TableHead className="text-right">Vencimento</TableHead>
+                    <TableHead className="w-[100px] text-right">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {paginatedProducts.map((product, index) => (
+                    <TableRow key={`${product.code}-${product.batch}-${index}`}>
+                    <TableCell>
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-sm text-muted-foreground">{product.code}</div>
+                    </TableCell>
+                    <TableCell>{product.batch || 'N/A'}</TableCell>
+                    <TableCell className="hidden md:table-cell">{product.category || 'N/A'}</TableCell>
+                    <TableCell className="text-right">{product.quantity}</TableCell>
+                    <TableCell className="text-right">
+                        {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(product)}>
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Editar</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(product)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <span className="sr-only">Excluir</span>
+                        </Button>
+                        </div>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+          </div>
            {filteredProducts.length === 0 && (
                 <div className="text-center text-muted-foreground py-8">
                     {searchQuery ? 'Nenhum produto encontrado para sua busca.' : 'Nenhum produto no estoque.'}
                 </div>
             )}
         </CardContent>
+         {totalPages > 1 && (
+          <CardFooter className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Mostrando <strong>{paginatedProducts.length}</strong> de <strong>{filteredProducts.length}</strong> produtos
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <span className="text-sm font-medium">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
       
       {/* Edit Dialog */}
