@@ -3,7 +3,7 @@
 
 import { useContext, useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Edit, Trash2, PlusCircle, Search } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Search, Barcode } from 'lucide-react';
 import Link from 'next/link';
 
 import { DataContext } from '@/context/data-context';
@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 
 import { EditProductForm } from './_components/edit-product-form';
 import { DeleteProductDialog } from './_components/delete-product-dialog';
+import { BarcodeScanner } from './new/_components/barcode-scanner';
 
 // Custom hook for debouncing
 function useDebounce(value: string, delay: number) {
@@ -66,7 +67,9 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState<'name' | 'code'>('name');
+  const [searchType, setSearchType] = useState<'code' | 'name'>('code');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -127,6 +130,12 @@ export default function ProductsPage() {
     });
     handleCloseDialogs();
   };
+  
+  const handleScanSuccess = (scannedCode: string) => {
+      setSearchType('code');
+      setSearchQuery(scannedCode);
+      setIsScannerOpen(false);
+  };
 
   return (
     <>
@@ -154,18 +163,30 @@ export default function ProductsPage() {
                 <Input
                     type="search"
                     placeholder={`Pesquisar por ${searchType === 'name' ? 'nome...' : 'código...'}`}
-                    className="pl-8 sm:w-full"
+                    className="w-full pl-8"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
+            {searchType === 'code' && (
+              <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setIsScannerOpen(true)}
+                >
+                  <Barcode className="h-5 w-5" />
+                  <span className="sr-only">Escanear código de barras</span>
+              </Button>
+            )}
+             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
                 <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Buscar por" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="name">Nome</SelectItem>
                     <SelectItem value="code">Código</SelectItem>
+                    <SelectItem value="name">Nome</SelectItem>
                 </SelectContent>
             </Select>
           </div>
@@ -241,6 +262,13 @@ export default function ProductsPage() {
             onClose={handleCloseDialogs}
             onConfirm={handleConfirmDelete}
             productName={selectedProduct.name}
+        />
+      )}
+
+      {isScannerOpen && (
+        <BarcodeScanner
+          onScan={handleScanSuccess}
+          onClose={() => setIsScannerOpen(false)}
         />
       )}
     </>
