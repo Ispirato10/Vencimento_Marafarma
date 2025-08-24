@@ -71,7 +71,11 @@ export function EditCatalogItemForm({ item, onSave, onCancel, isSaving }: EditCa
                 <FormItem>
                 <FormLabel>Nome do Produto</FormLabel>
                 <FormControl>
-                    <Input placeholder="Ex: Dipirona 500mg" {...field} />
+                    <Input 
+                        placeholder="Ex: Dipirona 500mg" 
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
@@ -84,7 +88,11 @@ export function EditCatalogItemForm({ item, onSave, onCancel, isSaving }: EditCa
                 <FormItem>
                 <FormLabel>Categoria</FormLabel>
                 <FormControl>
-                    <Input placeholder="Ex: Analgésico" {...field} />
+                    <Input 
+                        placeholder="Ex: Analgésico" 
+                        {...field} 
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                 </FormControl>
                 <FormMessage />
                 </FormItem>

@@ -95,7 +95,11 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
                 <FormItem>
                 <FormLabel>Nome do Produto</FormLabel>
                 <FormControl>
-                    <Input placeholder="Ex: Dipirona 500mg" {...field} />
+                    <Input 
+                        placeholder="Ex: Dipirona 500mg" 
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
@@ -108,7 +112,11 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
                 <FormItem>
                 <FormLabel>Categoria</FormLabel>
                 <FormControl>
-                    <Input placeholder="Ex: Analgésico" {...field} />
+                    <Input 
+                        placeholder="Ex: Analgésico" 
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                     />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
@@ -136,7 +144,11 @@ export function EditProductForm({ product, onSave, onCancel, isSaving }: EditPro
                 <FormItem>
                 <FormLabel>Lote</FormLabel>
                 <FormControl>
-                    <Input placeholder="Ex: A22B01" {...field} />
+                    <Input 
+                        placeholder="Ex: A22B01" 
+                        {...field} 
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    />
                 </FormControl>
                 <FormMessage />
                 </FormItem>
