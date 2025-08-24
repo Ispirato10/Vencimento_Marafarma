@@ -261,7 +261,8 @@ export function ProductForm() {
                     <FormControl>
                       <Input 
                         placeholder="Ex: Dipirona 500mg" 
-                        {...field} 
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         ref={nameInputRef} 
                         onKeyDown={(e) => handleKeyDown(e, categoryInputRef)}
                         readOnly={!isNewCatalogItem && form.getValues('name') !== ''}
@@ -281,9 +282,9 @@ export function ProductForm() {
                       <Input 
                         placeholder="Ex: Analgésico" 
                         {...field}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         ref={categoryInputRef}
                         onKeyDown={(e) => handleKeyDown(e, quantityInputRef)}
-                        readOnly={!isNewCatalogItem && form.getValues('category') !== ''}
                        />
                     </FormControl>
                     <FormMessage />
@@ -321,6 +322,7 @@ export function ProductForm() {
                       <Input 
                         placeholder="Ex: A22B01" 
                         {...field}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         ref={batchInputRef}
                         onKeyDown={(e) => handleKeyDown(e, expirationDateInputRef)}
                        />
