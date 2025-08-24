@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo } from 'react';
 import { format, differenceInDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
@@ -16,6 +16,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -50,6 +51,7 @@ declare module 'jspdf' {
     }
 }
 
+const ITEMS_PER_PAGE = 15;
 
 export default function ReportsPage() {
   const { products: allProducts, reportAuthor } = useContext(DataContext);
@@ -57,10 +59,12 @@ export default function ReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleFilter = () => {
     const today = new Date();
     let results: Product[];
+    setCurrentPage(1); // Reset page when filter changes
 
     if (period === 'custom') {
       if (dateRange?.from && dateRange?.to) {
@@ -88,6 +92,13 @@ export default function ReportsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProducts, period, dateRange]);
   
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage]);
+
   const handleExport = () => {
     if (filteredProducts.length === 0) {
       toast({
@@ -112,6 +123,7 @@ export default function ReportsPage() {
 
     const tableColumns = ['Produto', 'Código', 'Lote', 'Categoria', 'Qtd.', 'Vencimento'];
     
+    // Use filteredProducts for export, not paginatedProducts
     const tableRows = filteredProducts.map(p => [
       p.name,
       p.code,
@@ -261,38 +273,68 @@ export default function ReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredProducts.length > 0 ? (
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Lote</TableHead>
-                    <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                    <TableHead className="text-right">Quantidade</TableHead>
-                    <TableHead className="text-right">Data de Vencimento</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {filteredProducts.map((product, index) => (
-                    <TableRow key={`${product.code}-${product.batch}-${index}`}>
-                    <TableCell>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-muted-foreground">{product.code}</div>
-                    </TableCell>
-                    <TableCell>{product.batch}</TableCell>
-                    <TableCell className="hidden md:table-cell">{product.category}</TableCell>
-                    <TableCell className="text-right">{product.quantity}</TableCell>
-                    <TableCell className="text-right">
-                        {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
-                    </TableCell>
+          <div className="rounded-md border">
+            {filteredProducts.length > 0 ? (
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Produto</TableHead>
+                        <TableHead>Lote</TableHead>
+                        <TableHead className="hidden md:table-cell">Categoria</TableHead>
+                        <TableHead className="text-right">Quantidade</TableHead>
+                        <TableHead className="text-right">Data de Vencimento</TableHead>
                     </TableRow>
-                ))}
-                </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center text-muted-foreground py-8">Nenhum produto encontrado para os filtros selecionados.</div>
-          )}
+                    </TableHeader>
+                    <TableBody>
+                    {paginatedProducts.map((product, index) => (
+                        <TableRow key={`${product.code}-${product.batch}-${index}`}>
+                        <TableCell>
+                            <div className="font-medium">{product.name}</div>
+                            <div className="text-sm text-muted-foreground">{product.code}</div>
+                        </TableCell>
+                        <TableCell>{product.batch}</TableCell>
+                        <TableCell className="hidden md:table-cell">{product.category}</TableCell>
+                        <TableCell className="text-right">{product.quantity}</TableCell>
+                        <TableCell className="text-right">
+                            {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            ) : (
+                <div className="text-center text-muted-foreground py-8">Nenhum produto encontrado para os filtros selecionados.</div>
+            )}
+          </div>
         </CardContent>
+        {totalPages > 1 && (
+            <CardFooter className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                Mostrando <strong>{paginatedProducts.length}</strong> de <strong>{filteredProducts.length}</strong> produtos
+                </div>
+                <div className="flex items-center gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                >
+                    Anterior
+                </Button>
+                <span className="text-sm font-medium">
+                    Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                >
+                    Próximo
+                </Button>
+                </div>
+            </CardFooter>
+        )}
       </Card>
     </div>
   );
