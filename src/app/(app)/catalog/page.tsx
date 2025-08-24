@@ -2,7 +2,7 @@
 'use client';
 
 import { useContext, useState, useMemo, useEffect } from 'react';
-import { Edit, Trash2, Search } from 'lucide-react';
+import { Edit, Trash2, Search, Barcode } from 'lucide-react';
 
 import { DataContext } from '@/context/data-context';
 import type { CatalogItem } from '@/types';
@@ -40,6 +40,7 @@ import { useToast } from '@/hooks/use-toast';
 
 import { EditCatalogItemForm } from './_components/edit-catalog-item-form';
 import { DeleteCatalogItemDialog } from './_components/delete-catalog-item-dialog';
+import { BarcodeScanner } from '../products/new/_components/barcode-scanner';
 
 // Custom hook for debouncing
 function useDebounce(value: string, delay: number) {
@@ -64,7 +65,8 @@ export default function CatalogPage() {
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState<'name' | 'code'>('name');
+  const [searchType, setSearchType] = useState<'code' | 'name'>('code');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -78,7 +80,7 @@ export default function CatalogPage() {
         return item.name.toLowerCase().includes(query);
       }
       if (searchType === 'code') {
-        return item.code.toLowerCase() === query;
+        return item.code.toLowerCase().includes(query);
       }
       return true;
     });
@@ -126,6 +128,12 @@ export default function CatalogPage() {
     handleCloseDialogs();
   };
 
+  const handleScanSuccess = (scannedCode: string) => {
+      setSearchType('code');
+      setSearchQuery(scannedCode);
+      setIsScannerOpen(false);
+  };
+
   return (
     <>
       <Card>
@@ -141,19 +149,31 @@ export default function CatalogPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
-                    placeholder={`Pesquisar por ${searchType === 'name' ? 'nome...' : 'código exato...'}`}
-                    className="pl-8 sm:w-full"
+                    placeholder={`Pesquisar por ${searchType === 'name' ? 'nome...' : 'código...'}`}
+                    className="w-full pl-8"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
+             {searchType === 'code' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setIsScannerOpen(true)}
+              >
+                <Barcode className="h-5 w-5" />
+                <span className="sr-only">Escanear código de barras</span>
+              </Button>
+            )}
+             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
                 <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Buscar por" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="name">Nome</SelectItem>
                     <SelectItem value="code">Código</SelectItem>
+                    <SelectItem value="name">Nome</SelectItem>
                 </SelectContent>
             </Select>
           </div>
@@ -221,6 +241,13 @@ export default function CatalogPage() {
             onClose={handleCloseDialogs}
             onConfirm={handleConfirmDelete}
             itemName={selectedItem.name}
+        />
+      )}
+
+      {isScannerOpen && (
+        <BarcodeScanner
+          onScan={handleScanSuccess}
+          onClose={() => setIsScannerOpen(false)}
         />
       )}
     </>
