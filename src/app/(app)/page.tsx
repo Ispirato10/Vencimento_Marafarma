@@ -1,13 +1,12 @@
 
 'use client';
 
-import { useContext } from 'react';
-import { differenceInDays } from 'date-fns';
-import { format } from 'date-fns';
+import { useContext, useState, useMemo } from 'react';
+import { differenceInDays, format } from 'date-fns';
 import { AlertTriangle, CalendarClock, CalendarCheck } from 'lucide-react';
 
 import type { Product } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -19,41 +18,86 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { DataContext } from '@/context/data-context';
+import { Button } from '@/components/ui/button';
+
+const ITEMS_PER_PAGE = 7;
 
 const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return products.slice(startIndex, endIndex);
+  }, [products, currentPage]);
+
   if (products.length === 0) {
     return <div className="text-center text-muted-foreground py-8">Nenhum produto neste intervalo.</div>;
   }
+  
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Produto</TableHead>
-          <TableHead>Lote</TableHead>
-          <TableHead className="hidden md:table-cell">Categoria</TableHead>
-          <TableHead className="text-right">Qtd.</TableHead>
-          <TableHead className="text-right">Vencimento</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {products.map((product, index) => (
-          <TableRow key={`${product.code}-${product.batch}-${index}`}>
-            <TableCell>
-              <div className="font-medium">{product.name}</div>
-              <div className="text-sm text-muted-foreground">{product.code}</div>
-            </TableCell>
-            <TableCell>{product.batch}</TableCell>
-            <TableCell className="hidden md:table-cell">{product.category}</TableCell>
-            <TableCell className="text-right">{product.quantity}</TableCell>
-            <TableCell className="text-right">
-              <Badge variant={differenceInDays(new Date(product.expirationDate), new Date()) <= 30 ? "destructive" : "secondary"}>
-                {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
-              </Badge>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="space-y-4">
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Produto</TableHead>
+              <TableHead>Lote</TableHead>
+              <TableHead className="hidden md:table-cell">Categoria</TableHead>
+              <TableHead className="text-right">Qtd.</TableHead>
+              <TableHead className="text-right">Vencimento</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedProducts.map((product, index) => (
+              <TableRow key={`${product.code}-${product.batch}-${index}`}>
+                <TableCell>
+                  <div className="font-medium">{product.name}</div>
+                  <div className="text-sm text-muted-foreground">{product.code}</div>
+                </TableCell>
+                <TableCell>{product.batch}</TableCell>
+                <TableCell className="hidden md:table-cell">{product.category}</TableCell>
+                <TableCell className="text-right">{product.quantity}</TableCell>
+                <TableCell className="text-right">
+                  <Badge variant={differenceInDays(new Date(product.expirationDate), new Date()) <= 30 ? "destructive" : "secondary"}>
+                    {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Mostrando <strong>{paginatedProducts.length}</strong> de <strong>{products.length}</strong> produtos
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <span className="text-sm font-medium">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+              </Button>
+            </div>
+        </div>
+      )}
+    </div>
   );
 };
 
