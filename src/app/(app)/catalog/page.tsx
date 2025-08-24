@@ -65,7 +65,7 @@ export default function CatalogPage() {
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState<'code' | 'name'>('name');
+  const [searchType, setSearchType] = useState<'code' | 'name'>('code');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -167,13 +167,13 @@ export default function CatalogPage() {
                 <span className="sr-only">Escanear código de barras</span>
               </Button>
             )}
-             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
+             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
                 <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Buscar por" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="name">Nome</SelectItem>
                     <SelectItem value="code">Código</SelectItem>
+                    <SelectItem value="name">Nome</SelectItem>
                 </SelectContent>
             </Select>
           </div>

@@ -67,7 +67,7 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState<'name' | 'code'>('name');
+  const [searchType, setSearchType] = useState<'code' | 'name'>('code');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
 
@@ -180,13 +180,13 @@ export default function ProductsPage() {
                   <span className="sr-only">Escanear código de barras</span>
               </Button>
             )}
-             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'name' | 'code')}>
+             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
                 <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Buscar por" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="name">Nome</SelectItem>
                     <SelectItem value="code">Código</SelectItem>
+                    <SelectItem value="name">Nome</SelectItem>
                 </SelectContent>
             </Select>
           </div>
