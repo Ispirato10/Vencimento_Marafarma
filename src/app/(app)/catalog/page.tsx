@@ -27,6 +27,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -56,6 +57,8 @@ function useDebounce(value: string, delay: number) {
   return debouncedValue;
 }
 
+const ITEMS_PER_PAGE = 15;
+
 export default function CatalogPage() {
   const { catalog, updateCatalogItem, deleteCatalogItem } = useContext(DataContext);
   const { toast } = useToast();
@@ -67,10 +70,12 @@ export default function CatalogPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'code' | 'name'>('code');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const filteredCatalog = useMemo(() => {
+    setCurrentPage(1); // Reset page when filter changes
     if (!debouncedSearchQuery) {
       return catalog;
     }
@@ -85,6 +90,13 @@ export default function CatalogPage() {
       return true;
     });
   }, [catalog, debouncedSearchQuery, searchType]);
+
+  const totalPages = Math.ceil(filteredCatalog.length / ITEMS_PER_PAGE);
+  const paginatedCatalog = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredCatalog.slice(startIndex, endIndex);
+  }, [filteredCatalog, currentPage]);
 
 
   const handleEditClick = (item: CatalogItem) => {
@@ -177,44 +189,74 @@ export default function CatalogPage() {
                 </SelectContent>
             </Select>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produto</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="w-[100px] text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCatalog.map((item, index) => (
-                <TableRow key={`${item.code}-${index}`}>
-                  <TableCell>
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-sm text-muted-foreground">{item.code}</div>
-                  </TableCell>
-                  <TableCell>{item.category || 'N/A'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}>
-                        <Edit className="h-4 w-4" />
-                         <span className="sr-only">Editar</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                         <span className="sr-only">Excluir</span>
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="w-[100px] text-right">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {paginatedCatalog.map((item, index) => (
+                    <TableRow key={`${item.code}-${index}`}>
+                    <TableCell>
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-sm text-muted-foreground">{item.code}</div>
+                    </TableCell>
+                    <TableCell>{item.category || 'N/A'}</TableCell>
+                    <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}>
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Editar</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <span className="sr-only">Excluir</span>
+                        </Button>
+                        </div>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+          </div>
            {filteredCatalog.length === 0 && (
                 <div className="text-center text-muted-foreground py-8">
                     {searchQuery ? 'Nenhum item encontrado para sua busca.' : 'Nenhum item no catálogo.'}
                 </div>
             )}
         </CardContent>
+        {totalPages > 1 && (
+          <CardFooter className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Mostrando <strong>{paginatedCatalog.length}</strong> de <strong>{filteredCatalog.length}</strong> itens
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <span className="text-sm font-medium">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
       
       {/* Edit Dialog */}
