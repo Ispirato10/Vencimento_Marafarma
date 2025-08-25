@@ -155,7 +155,7 @@ export default function ProductsPage() {
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
              <div>
-                <CardTitle>Estoque de Produtos</CardTitle>
+                <CardTitle className="text-2xl">Estoque de Produtos</CardTitle>
                 <CardDescription>
                   Visualize, gerencie e pesquise todos os produtos em seu estoque.
                 </CardDescription>
