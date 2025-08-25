@@ -194,7 +194,7 @@ export default function CatalogPage() {
                 <TableHeader>
                 <TableRow>
                     <TableHead>Produto</TableHead>
-                    <TableHead>Categoria</TableHead>
+                    <TableHead className="hidden md:table-cell">Categoria</TableHead>
                     <TableHead className="w-[100px] text-right">Ações</TableHead>
                 </TableRow>
                 </TableHeader>
@@ -205,7 +205,7 @@ export default function CatalogPage() {
                         <div className="font-medium">{item.name}</div>
                         <div className="text-sm text-muted-foreground">{item.code}</div>
                     </TableCell>
-                    <TableCell>{item.category || 'N/A'}</TableCell>
+                    <TableCell className="hidden md:table-cell">{item.category || 'N/A'}</TableCell>
                     <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
                         <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}>
