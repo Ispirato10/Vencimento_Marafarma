@@ -70,7 +70,7 @@ const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
         </Table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
             <div className="text-xs text-muted-foreground">
               Mostrando <strong>{paginatedProducts.length}</strong> de <strong>{products.length}</strong> produtos
             </div>
@@ -167,10 +167,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="30days">
-              <TabsList>
-                <TabsTrigger value="30days">Próximos 30 dias</TabsTrigger>
-                <TabsTrigger value="60days">Próximos 31-60 dias</TabsTrigger>
-                <TabsTrigger value="90days">Próximos 61-90 dias</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 h-auto flex-wrap">
+                <TabsTrigger value="30days">Próx. 30 dias</TabsTrigger>
+                <TabsTrigger value="60days">Próx. 31-60 dias</TabsTrigger>
+                <TabsTrigger value="90days">Próx. 61-90 dias</TabsTrigger>
               </TabsList>
               <TabsContent value="30days">
                 <ExpiringProductsTable products={expiringIn30Days} />
