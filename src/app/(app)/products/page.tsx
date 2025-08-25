@@ -204,12 +204,12 @@ export default function ProductsPage() {
                 </Select>
             </div>
           </div>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-auto">
             <Table>
                 <TableHeader>
                 <TableRow>
                     <TableHead>Produto</TableHead>
-                    <TableHead className="hidden md:table-cell">Categoria</TableHead>
+                    <TableHead>Categoria</TableHead>
                     <TableHead className="text-right">Qtd.</TableHead>
                     <TableHead className="text-right">Vencimento</TableHead>
                     <TableHead className="w-[100px] text-right">Ações</TableHead>
@@ -223,7 +223,7 @@ export default function ProductsPage() {
                         <div className="text-xs text-muted-foreground">{product.code}</div>
                         {product.batch && <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch}</div>}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{product.category || 'N/A'}</TableCell>
+                    <TableCell>{product.category || 'N/A'}</TableCell>
                     <TableCell className="text-right">{product.quantity}</TableCell>
                     <TableCell className="text-right">
                         {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
