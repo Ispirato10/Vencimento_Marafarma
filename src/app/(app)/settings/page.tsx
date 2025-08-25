@@ -284,10 +284,15 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-           <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection}>
-              <Wifi className="mr-2 h-4 w-4" />
-              {isTestingConnection ? 'Testando...' : 'Testar Conexão com Firebase'}
-           </Button>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <p className="text-sm text-muted-foreground flex-1">
+              Esta ação tentará ler um item do seu banco de dados para confirmar que as chaves de API e as regras de segurança estão funcionando.
+            </p>
+            <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection}>
+                <Wifi className="mr-2 h-4 w-4" />
+                {isTestingConnection ? 'Testando...' : 'Testar Conexão com Firebase'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
       
@@ -375,24 +380,23 @@ export default function SettingsPage() {
           )}
            <Separator />
            <div className="flex flex-col p-4 border rounded-lg space-y-4 bg-destructive/10 border-destructive/20">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h3 className="font-medium text-destructive">Ações Perigosas</h3>
-                <p className="text-sm text-destructive/80">
-                  Exclua permanentemente todos os produtos vencidos do estoque.
+                <h3 className="font-medium text-destructive">Excluir Produtos Vencidos</h3>
+                <p className="text-sm text-destructive/80 mt-1">
+                  Esta ação excluirá permanentemente todos os {expiredProductsCount} produto(s) vencido(s) do estoque.
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={() => setIsDeleteExpiredDialogOpen(true)} 
-                  disabled={expiredProductsCount === 0 || isImporting}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Excluir Vencidos ({expiredProductsCount})
-                </Button>
-              </div>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="self-start md:self-center"
+                onClick={() => setIsDeleteExpiredDialogOpen(true)} 
+                disabled={expiredProductsCount === 0 || isImporting}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir Vencidos ({expiredProductsCount})
+              </Button>
             </div>
           </div>
         </CardContent>

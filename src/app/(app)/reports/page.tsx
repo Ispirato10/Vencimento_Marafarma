@@ -308,7 +308,7 @@ export default function ReportsPage() {
           </div>
         </CardContent>
         {totalPages > 1 && (
-            <CardFooter className="flex items-center justify-between">
+            <CardFooter className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
                 <div className="text-xs text-muted-foreground">
                 Mostrando <strong>{paginatedProducts.length}</strong> de <strong>{filteredProducts.length}</strong> produtos
                 </div>
