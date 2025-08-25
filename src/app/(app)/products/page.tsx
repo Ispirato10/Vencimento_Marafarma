@@ -3,7 +3,7 @@
 
 import { useContext, useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Edit, Trash2, PlusCircle, Search, Barcode } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Search, Barcode, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import Link from 'next/link';
 
 import { DataContext } from '@/context/data-context';
@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 import { EditProductForm } from './_components/edit-product-form';
 import { DeleteProductDialog } from './_components/delete-product-dialog';
@@ -73,7 +74,7 @@ export default function ProductsPage() {
   const [searchType, setSearchType] = useState<'code' | 'name'>('code');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-
+  const [showDetailedView, setShowDetailedView] = useState(false);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -100,7 +101,6 @@ export default function ProductsPage() {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return filteredProducts.slice(startIndex, endIndex);
   }, [filteredProducts, currentPage]);
-
 
   const handleEditClick = (product: Product) => {
     setSelectedProduct(product);
@@ -160,16 +160,22 @@ export default function ProductsPage() {
                   Visualize, gerencie e pesquise todos os produtos em seu estoque.
                 </CardDescription>
              </div>
-             <Button asChild size="sm">
-                <Link href="/products/new">
-                  <PlusCircle className="mr-2" />
-                  Adicionar Produto
-                </Link>
-             </Button>
+             <div className="flex gap-2 self-start md:self-auto">
+                <Button variant="outline" size="sm" onClick={() => setShowDetailedView(!showDetailedView)}>
+                   {showDetailedView ? <PanelRightClose className="mr-2 h-4 w-4" /> : <PanelRightOpen className="mr-2 h-4 w-4" />}
+                   {showDetailedView ? 'Visão Simples' : 'Visão Detalhada'}
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/products/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Adicionar Produto
+                  </Link>
+                </Button>
+             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -180,68 +186,69 @@ export default function ProductsPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-            {searchType === 'code' && (
-              <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="shrink-0"
-                  onClick={() => setIsScannerOpen(true)}
-                >
-                  <Barcode className="h-5 w-5" />
-                  <span className="sr-only">Escanear código de barras</span>
-              </Button>
-            )}
-             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
-                <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Buscar por" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="code">Código</SelectItem>
-                    <SelectItem value="name">Nome</SelectItem>
-                </SelectContent>
-            </Select>
+             <div className="flex gap-2">
+                {searchType === 'code' && (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => setIsScannerOpen(true)}
+                    >
+                    <Barcode className="h-5 w-5" />
+                    <span className="sr-only">Escanear código de barras</span>
+                </Button>
+                )}
+                <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
+                    <SelectTrigger className="w-full sm:w-[120px]">
+                        <SelectValue placeholder="Buscar por" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="code">Código</SelectItem>
+                        <SelectItem value="name">Nome</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
           </div>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
-                <TableHeader>
+              <TableHeader>
                 <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Lote</TableHead>
-                    <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                    <TableHead className="text-right">Qtd.</TableHead>
-                    <TableHead className="text-right">Vencimento</TableHead>
-                    <TableHead className="w-[100px] text-right">Ações</TableHead>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className={cn(!showDetailedView && 'hidden md:table-cell')}>Categoria</TableHead>
+                  <TableHead className="text-right">Qtd.</TableHead>
+                  <TableHead className="text-right">Vencimento</TableHead>
+                  <TableHead className={cn('text-right', !showDetailedView && 'hidden md:table-cell') }>Ações</TableHead>
                 </TableRow>
-                </TableHeader>
-                <TableBody>
-                {paginatedProducts.map((product, index) => (
-                    <TableRow key={`${product.code}-${product.batch}-${index}`}>
+              </TableHeader>
+              <TableBody>
+                {paginatedProducts.map((product) => (
+                  <TableRow key={`${product.code}-${product.batch}`}>
                     <TableCell>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-muted-foreground">{product.code}</div>
+                      <div className="font-medium">{product.name}</div>
+                      <div className="text-xs text-muted-foreground">{product.code}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch || 'N/A'}</div>
                     </TableCell>
-                    <TableCell>{product.batch || 'N/A'}</TableCell>
-                    <TableCell className="hidden md:table-cell">{product.category || 'N/A'}</TableCell>
+                    <TableCell className={cn(!showDetailedView && 'hidden md:table-cell')}>{product.category || 'N/A'}</TableCell>
                     <TableCell className="text-right">{product.quantity}</TableCell>
                     <TableCell className="text-right">
-                        {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
+                      {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className={cn('text-right', !showDetailedView && 'hidden md:table-cell') }>
                         <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(product)}>
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Editar</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(product)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                            <span className="sr-only">Excluir</span>
-                        </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(product)}>
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">Editar</span>
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(product)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Excluir</span>
+                            </Button>
                         </div>
                     </TableCell>
-                    </TableRow>
+                  </TableRow>
                 ))}
-                </TableBody>
+              </TableBody>
             </Table>
           </div>
            {filteredProducts.length === 0 && (
