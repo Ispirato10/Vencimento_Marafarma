@@ -34,7 +34,7 @@ export function SplashScreen({ customImage }: SplashScreenProps) {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">
                         Controle de Vencimentos
                     </h1>
-                    <p className="text-muted-foreground">Carregando seus dados...</p>
+                    <p className="text-muted-foreground">Carregando dados do Sistema...</p>
                 </div>
                 <LoaderCircle className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
