@@ -190,7 +190,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Relatórios de Vencimento</CardTitle>
+          <CardTitle className="text-2xl">Relatórios de Vencimento</CardTitle>
           <CardDescription>
             Filtre e visualize os produtos por período de vencimento.
           </CardDescription>

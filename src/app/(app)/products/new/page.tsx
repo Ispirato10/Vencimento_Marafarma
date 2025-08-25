@@ -2,11 +2,13 @@ import { ProductForm } from './_components/product-form';
 
 export default function NewProductPage() {
   return (
-    <div className="flex justify-center items-start py-4">
-      <div className="w-full max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6 text-center">Cadastro de Produto</h1>
-        <ProductForm />
-      </div>
+    <div className="flex flex-col items-center justify-start w-full">
+        <div className="w-full text-center mb-6">
+            <h1 className="text-2xl font-bold tracking-tight">Cadastro de Produto</h1>
+        </div>
+        <div className="w-full max-w-2xl">
+            <ProductForm />
+        </div>
     </div>
   );
 }

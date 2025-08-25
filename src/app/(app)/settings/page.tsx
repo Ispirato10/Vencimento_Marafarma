@@ -221,7 +221,7 @@ export default function SettingsPage() {
 
   return (
     <>
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6">
       <input 
         type="file"
         ref={splashImageImportRef}
@@ -245,7 +245,7 @@ export default function SettingsPage() {
         />
       
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">
           Gerencie as configurações de aparência e dados do aplicativo.
         </p>

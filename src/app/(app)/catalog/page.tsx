@@ -150,7 +150,7 @@ export default function CatalogPage() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Catálogo de Produtos</CardTitle>
+          <CardTitle className="text-2xl">Catálogo de Produtos</CardTitle>
           <CardDescription>
             Visualize, gerencie e pesquise todos os itens do seu catálogo de produtos.
           </CardDescription>
