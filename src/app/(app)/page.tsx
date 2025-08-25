@@ -43,7 +43,7 @@ const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
           <TableHeader>
             <TableRow>
               <TableHead>Produto</TableHead>
-              <TableHead>Lote</TableHead>
+              <TableHead className="hidden md:table-cell">Lote</TableHead>
               <TableHead className="hidden md:table-cell">Categoria</TableHead>
               <TableHead className="text-right">Qtd.</TableHead>
               <TableHead className="text-right">Vencimento</TableHead>
@@ -56,7 +56,7 @@ const ExpiringProductsTable = ({ products }: { products: Product[] }) => {
                   <div className="font-medium">{product.name}</div>
                   <div className="text-sm text-muted-foreground">{product.code}</div>
                 </TableCell>
-                <TableCell>{product.batch}</TableCell>
+                <TableCell className="hidden md:table-cell">{product.batch}</TableCell>
                 <TableCell className="hidden md:table-cell">{product.category}</TableCell>
                 <TableCell className="text-right">{product.quantity}</TableCell>
                 <TableCell className="text-right">
