@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useContext, useState, useMemo, useEffect, Fragment } from 'react';
+import { useContext, useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Edit, Trash2, PlusCircle, Search, Barcode, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import Link from 'next/link';
@@ -215,10 +215,10 @@ export default function ProductsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Produto</TableHead>
-                  <TableHead className={cn(!showDetailedView && 'hidden sm:table-cell')}>Categoria</TableHead>
+                  <TableHead className={cn(!showDetailedView && 'hidden md:table-cell')}>Categoria</TableHead>
                   <TableHead className="text-right">Qtd.</TableHead>
                   <TableHead className="text-right">Vencimento</TableHead>
-                  <TableHead className={cn('text-right', !showDetailedView && 'hidden') }>Ações</TableHead>
+                  <TableHead className={cn('text-right', !showDetailedView && 'hidden md:table-cell') }>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -229,12 +229,12 @@ export default function ProductsPage() {
                       <div className="text-xs text-muted-foreground">{product.code}</div>
                       <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch || 'N/A'}</div>
                     </TableCell>
-                    <TableCell className={cn(!showDetailedView && 'hidden sm:table-cell')}>{product.category || 'N/A'}</TableCell>
+                    <TableCell className={cn(!showDetailedView && 'hidden md:table-cell')}>{product.category || 'N/A'}</TableCell>
                     <TableCell className="text-right">{product.quantity}</TableCell>
                     <TableCell className="text-right">
                       {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
                     </TableCell>
-                    <TableCell className={cn('text-right', !showDetailedView && 'hidden') }>
+                    <TableCell className={cn('text-right', !showDetailedView && 'hidden md:table-cell') }>
                         <div className="flex gap-2 justify-end">
                             <Button variant="ghost" size="icon" onClick={() => handleEditClick(product)}>
                                 <Edit className="h-4 w-4" />
@@ -321,5 +321,5 @@ export default function ProductsPage() {
         />
       )}
     </>
-    
-    
+  );
+}
