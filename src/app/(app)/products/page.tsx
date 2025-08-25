@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useContext, useState, useMemo, useEffect } from 'react';
+import { useContext, useState, useMemo, useEffect, Fragment } from 'react';
 import { format } from 'date-fns';
-import { Edit, Trash2, PlusCircle, Search, Barcode } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Search, Barcode, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 
 import { DataContext } from '@/context/data-context';
@@ -39,6 +39,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 
 import { EditProductForm } from './_components/edit-product-form';
@@ -73,7 +78,7 @@ export default function ProductsPage() {
   const [searchType, setSearchType] = useState<'code' | 'name'>('code');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -100,7 +105,6 @@ export default function ProductsPage() {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return filteredProducts.slice(startIndex, endIndex);
   }, [filteredProducts, currentPage]);
-
 
   const handleEditClick = (product: Product) => {
     setSelectedProduct(product);
@@ -147,6 +151,10 @@ export default function ProductsPage() {
       setSearchType('code');
       setSearchQuery(scannedCode);
       setIsScannerOpen(false);
+  };
+
+  const toggleRow = (id: string) => {
+    setOpenRows(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
@@ -204,45 +212,73 @@ export default function ProductsPage() {
                 </Select>
             </div>
           </div>
-          <div className="rounded-md border overflow-auto">
+          <div className="rounded-md border">
             <Table>
-                <TableHeader>
+              <TableHeader>
                 <TableRow>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead className="text-right">Qtd.</TableHead>
-                    <TableHead className="text-right">Vencimento</TableHead>
-                    <TableHead className="w-[100px] text-right">Ações</TableHead>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className="text-right">Qtd.</TableHead>
+                  <TableHead className="text-right">Vencimento</TableHead>
+                  <TableHead className="w-[80px] text-center">Detalhes</TableHead>
                 </TableRow>
-                </TableHeader>
-                <TableBody>
-                {paginatedProducts.map((product, index) => (
-                    <TableRow key={`${product.code}-${product.batch}-${index}`}>
-                    <TableCell>
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-xs text-muted-foreground">{product.code}</div>
-                        {product.batch && <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch}</div>}
-                    </TableCell>
-                    <TableCell>{product.category || 'N/A'}</TableCell>
-                    <TableCell className="text-right">{product.quantity}</TableCell>
-                    <TableCell className="text-right">
-                        {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(product)}>
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Editar</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(product)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                            <span className="sr-only">Excluir</span>
-                        </Button>
-                        </div>
-                    </TableCell>
-                    </TableRow>
-                ))}
-                </TableBody>
+              </TableHeader>
+              <TableBody>
+                {paginatedProducts.map((product) => {
+                  const rowId = `${product.code}-${product.batch}`;
+                  return (
+                    <Fragment key={rowId}>
+                      <Collapsible asChild open={openRows[rowId] || false} onOpenChange={() => toggleRow(rowId)}>
+                        <>
+                          <TableRow>
+                            <TableCell>
+                              <div className="font-medium">{product.name}</div>
+                              <div className="text-xs text-muted-foreground">{product.code}</div>
+                              {product.batch && <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch}</div>}
+                            </TableCell>
+                            <TableCell className="text-right">{product.quantity}</TableCell>
+                            <TableCell className="text-right">
+                              {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
+                                  <span className="sr-only">Ver detalhes</span>
+                                </Button>
+                              </CollapsibleTrigger>
+                            </TableCell>
+                          </TableRow>
+                          <CollapsibleContent asChild>
+                            <tr className="bg-muted/50">
+                              <TableCell colSpan={4} className="p-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <h4 className="font-semibold text-sm mb-1">Categoria</h4>
+                                    <p className="text-sm text-muted-foreground">{product.category || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <h4 className="font-semibold text-sm mb-1">Ações</h4>
+                                    <div className="flex gap-2">
+                                      <Button variant="outline" size="sm" onClick={() => handleEditClick(product)}>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Editar
+                                      </Button>
+                                      <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(product)}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Excluir
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </tr>
+                          </CollapsibleContent>
+                        </>
+                      </Collapsible>
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
             </Table>
           </div>
            {filteredProducts.length === 0 && (
@@ -317,5 +353,3 @@ export default function ProductsPage() {
     </>
   );
 }
-
-    
