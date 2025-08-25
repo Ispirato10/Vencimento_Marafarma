@@ -3,7 +3,7 @@
 
 import { useContext, useState, useMemo, useEffect, Fragment } from 'react';
 import { format } from 'date-fns';
-import { Edit, Trash2, PlusCircle, Search, Barcode, ChevronDown } from 'lucide-react';
+import { Edit, Trash2, PlusCircle, Search, Barcode, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import Link from 'next/link';
 
 import { DataContext } from '@/context/data-context';
@@ -39,12 +39,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 import { EditProductForm } from './_components/edit-product-form';
 import { DeleteProductDialog } from './_components/delete-product-dialog';
@@ -78,7 +74,7 @@ export default function ProductsPage() {
   const [searchType, setSearchType] = useState<'code' | 'name'>('code');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
+  const [showDetailedView, setShowDetailedView] = useState(false);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -153,10 +149,6 @@ export default function ProductsPage() {
       setIsScannerOpen(false);
   };
 
-  const toggleRow = (id: string) => {
-    setOpenRows(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
   return (
     <>
       <Card>
@@ -168,12 +160,18 @@ export default function ProductsPage() {
                   Visualize, gerencie e pesquise todos os produtos em seu estoque.
                 </CardDescription>
              </div>
-             <Button asChild size="sm" className="self-start md:self-auto">
-                <Link href="/products/new">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Adicionar Produto
-                </Link>
-             </Button>
+             <div className="flex gap-2 self-start md:self-auto">
+                <Button variant="outline" size="sm" onClick={() => setShowDetailedView(!showDetailedView)}>
+                   {showDetailedView ? <PanelRightClose className="mr-2 h-4 w-4" /> : <PanelRightOpen className="mr-2 h-4 w-4" />}
+                   {showDetailedView ? 'Visão Simples' : 'Visão Detalhada'}
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/products/new">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Adicionar Produto
+                  </Link>
+                </Button>
+             </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -212,72 +210,44 @@ export default function ProductsPage() {
                 </Select>
             </div>
           </div>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Produto</TableHead>
+                  <TableHead className={cn(!showDetailedView && 'hidden sm:table-cell')}>Categoria</TableHead>
                   <TableHead className="text-right">Qtd.</TableHead>
                   <TableHead className="text-right">Vencimento</TableHead>
-                  <TableHead className="w-[80px] text-center">Detalhes</TableHead>
+                  <TableHead className={cn('text-right', !showDetailedView && 'hidden') }>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedProducts.map((product) => {
-                  const rowId = `${product.code}-${product.batch}`;
-                  return (
-                    <Fragment key={rowId}>
-                      <Collapsible asChild open={openRows[rowId] || false} onOpenChange={() => toggleRow(rowId)}>
-                        <>
-                          <TableRow>
-                            <TableCell>
-                              <div className="font-medium">{product.name}</div>
-                              <div className="text-xs text-muted-foreground">{product.code}</div>
-                              {product.batch && <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch}</div>}
-                            </TableCell>
-                            <TableCell className="text-right">{product.quantity}</TableCell>
-                            <TableCell className="text-right">
-                              {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
-                                  <span className="sr-only">Ver detalhes</span>
-                                </Button>
-                              </CollapsibleTrigger>
-                            </TableCell>
-                          </TableRow>
-                          <CollapsibleContent asChild>
-                            <tr className="bg-muted/50">
-                              <TableCell colSpan={4} className="p-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <h4 className="font-semibold text-sm mb-1">Categoria</h4>
-                                    <p className="text-sm text-muted-foreground">{product.category || 'N/A'}</p>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-semibold text-sm mb-1">Ações</h4>
-                                    <div className="flex gap-2">
-                                      <Button variant="outline" size="sm" onClick={() => handleEditClick(product)}>
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Editar
-                                      </Button>
-                                      <Button variant="destructive" size="sm" onClick={() => handleDeleteClick(product)}>
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Excluir
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </tr>
-                          </CollapsibleContent>
-                        </>
-                      </Collapsible>
-                    </Fragment>
-                  );
-                })}
+                {paginatedProducts.map((product) => (
+                  <TableRow key={`${product.code}-${product.batch}`}>
+                    <TableCell>
+                      <div className="font-medium">{product.name}</div>
+                      <div className="text-xs text-muted-foreground">{product.code}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch || 'N/A'}</div>
+                    </TableCell>
+                    <TableCell className={cn(!showDetailedView && 'hidden sm:table-cell')}>{product.category || 'N/A'}</TableCell>
+                    <TableCell className="text-right">{product.quantity}</TableCell>
+                    <TableCell className="text-right">
+                      {format(new Date(product.expirationDate), 'dd/MM/yyyy')}
+                    </TableCell>
+                    <TableCell className={cn('text-right', !showDetailedView && 'hidden') }>
+                        <div className="flex gap-2 justify-end">
+                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(product)}>
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">Editar</span>
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(product)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Excluir</span>
+                            </Button>
+                        </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -351,5 +321,5 @@ export default function ProductsPage() {
         />
       )}
     </>
-  );
-}
+    
+    
