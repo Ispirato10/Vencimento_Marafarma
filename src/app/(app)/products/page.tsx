@@ -160,7 +160,7 @@ export default function ProductsPage() {
                   Visualize, gerencie e pesquise todos os produtos em seu estoque.
                 </CardDescription>
              </div>
-             <Button asChild size="sm">
+             <Button asChild size="sm" className="self-start md:self-auto">
                 <Link href="/products/new">
                   <PlusCircle className="mr-2" />
                   Adicionar Produto
@@ -207,7 +207,6 @@ export default function ProductsPage() {
                 <TableHeader>
                 <TableRow>
                     <TableHead>Produto</TableHead>
-                    <TableHead>Lote</TableHead>
                     <TableHead className="hidden md:table-cell">Categoria</TableHead>
                     <TableHead className="text-right">Qtd.</TableHead>
                     <TableHead className="text-right">Vencimento</TableHead>
@@ -219,9 +218,9 @@ export default function ProductsPage() {
                     <TableRow key={`${product.code}-${product.batch}-${index}`}>
                     <TableCell>
                         <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-muted-foreground">{product.code}</div>
+                        <div className="text-xs text-muted-foreground">{product.code}</div>
+                        {product.batch && <div className="text-xs text-muted-foreground mt-1">Lote: {product.batch}</div>}
                     </TableCell>
-                    <TableCell>{product.batch || 'N/A'}</TableCell>
                     <TableCell className="hidden md:table-cell">{product.category || 'N/A'}</TableCell>
                     <TableCell className="text-right">{product.quantity}</TableCell>
                     <TableCell className="text-right">
@@ -316,3 +315,5 @@ export default function ProductsPage() {
     </>
   );
 }
+
+    

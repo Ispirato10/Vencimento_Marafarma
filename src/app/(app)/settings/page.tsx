@@ -263,12 +263,12 @@ export default function SettingsPage() {
             <span className="font-medium">Tema de Cores</span>
             <ThemeToggle />
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className='flex flex-col gap-1'>
                 <span className="font-medium">Imagem de Abertura</span>
-                <span className="text-xs text-muted-foreground">Recomendado: PNG com fundo transparente</span>
+                <span className="text-xs text-muted-foreground">Recomendado: PNG com fundo transparente, até 2MB</span>
             </div>
-            <Button variant="outline" size="sm" onClick={() => splashImageImportRef.current?.click()}>
+            <Button variant="outline" size="sm" onClick={() => splashImageImportRef.current?.click()} className="self-start sm:self-auto">
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Alterar Imagem
             </Button>
@@ -280,7 +280,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Diagnóstico de Conexão</CardTitle>
           <CardDescription>
-            Use este botão para verificar se a aplicação está se comunicando corretamente com o banco de dados Firebase.
+            Verifique se a aplicação está se comunicando com o banco de dados.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -288,9 +288,9 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground flex-1">
               Esta ação tentará ler um item do seu banco de dados para confirmar que as chaves de API e as regras de segurança estão funcionando.
             </p>
-            <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection}>
+            <Button variant="outline" onClick={handleTestConnection} disabled={isTestingConnection} className="self-start sm:self-auto">
                 <Wifi className="mr-2 h-4 w-4" />
-                {isTestingConnection ? 'Testando...' : 'Testar Conexão com Firebase'}
+                {isTestingConnection ? 'Testando...' : 'Testar Conexão'}
             </Button>
           </div>
         </CardContent>
@@ -338,13 +338,12 @@ export default function SettingsPage() {
               <div className="flex flex-col p-4 border rounded-lg space-y-4">
                   <h3 className="font-semibold text-lg">Estoque Completo</h3>
                   <p className="text-sm text-muted-foreground">
-                    Importe ou exporte toda a sua base de produtos em estoque. Ideal para migração ou backup completo.
+                    Importe ou exporte toda a sua base de produtos. Ideal para migração ou backup completo.
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
-                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">quantity</code>, <code className="bg-muted px-1 py-0.5 rounded">expirationDate</code>. A data deve estar no formato <code className="bg-muted px-1 py-0.5 rounded">DD/MM/AAAA</code>. Campos opcionais: <code className="bg-muted px-1 py-0.5 rounded">category</code>, <code className="bg-muted px-1 py-0.5 rounded">batch</code>.
+                    <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter as colunas <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>, <code className="bg-muted px-1 py-0.5 rounded">quantity</code>, e <code className="bg-muted px-1 py-0.5 rounded">expirationDate</code> (formato DD/MM/AAAA).
                   </p>
-                  <div className="flex gap-2 self-start">
+                  <div className="flex flex-col sm:flex-row gap-2 self-start">
                       <Button variant="outline" size="sm" onClick={() => databaseImportRef.current?.click()}>
                           <FileUp className="mr-2 h-4 w-4" />
                           Importar Estoque
@@ -359,13 +358,12 @@ export default function SettingsPage() {
                <div className="flex flex-col p-4 border rounded-lg space-y-4">
                   <h3 className="font-semibold text-lg">Catálogo de Produtos</h3>
                   <p className="text-sm text-muted-foreground">
-                    Importe ou exporte apenas seu catálogo de produtos (código, nome, categoria), sem informações de lote ou quantidade.
+                    Importe ou exporte seu catálogo (código, nome, categoria).
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter exatamente os seguintes cabeçalhos na primeira linha: <br />
-                    <code className="bg-muted px-1 py-0.5 rounded">code</code>, <code className="bg-muted px-1 py-0.5 rounded">name</code>. Campo opcional: <code className="bg-muted px-1 py-0.5 rounded">category</code>.
+                    <span className="font-bold text-foreground">Atenção na Importação:</span> O arquivo <code className="bg-muted px-1 py-0.5 rounded">.xlsx</code> deve conter as colunas <code className="bg-muted px-1 py-0.5 rounded">code</code> e <code className="bg-muted px-1 py-0.5 rounded">name</code>.
                   </p>
-                  <div className="flex gap-2 self-start">
+                  <div className="flex flex-col sm:flex-row gap-2 self-start">
                       <Button variant="outline" size="sm" onClick={() => catalogImportRef.current?.click()}>
                           <FileUp className="mr-2 h-4 w-4" />
                           Importar Catálogo
@@ -412,3 +410,5 @@ export default function SettingsPage() {
     </>
   );
 }
+
+    
