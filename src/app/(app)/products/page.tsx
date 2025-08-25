@@ -162,14 +162,14 @@ export default function ProductsPage() {
              </div>
              <Button asChild size="sm" className="self-start md:self-auto">
                 <Link href="/products/new">
-                  <PlusCircle className="mr-2" />
+                  <PlusCircle className="mr-2 h-4 w-4" />
                   Adicionar Produto
                 </Link>
              </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -180,27 +180,29 @@ export default function ProductsPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
-            {searchType === 'code' && (
-              <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="shrink-0"
-                  onClick={() => setIsScannerOpen(true)}
-                >
-                  <Barcode className="h-5 w-5" />
-                  <span className="sr-only">Escanear código de barras</span>
-              </Button>
-            )}
-             <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
-                <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Buscar por" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="code">Código</SelectItem>
-                    <SelectItem value="name">Nome</SelectItem>
-                </SelectContent>
-            </Select>
+             <div className="flex gap-2">
+                {searchType === 'code' && (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => setIsScannerOpen(true)}
+                    >
+                    <Barcode className="h-5 w-5" />
+                    <span className="sr-only">Escanear código de barras</span>
+                </Button>
+                )}
+                <Select value={searchType} onValueChange={(value) => setSearchType(value as 'code' | 'name')}>
+                    <SelectTrigger className="w-full sm:w-[120px]">
+                        <SelectValue placeholder="Buscar por" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="code">Código</SelectItem>
+                        <SelectItem value="name">Nome</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
           </div>
           <div className="rounded-md border">
             <Table>
