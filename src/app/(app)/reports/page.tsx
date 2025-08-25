@@ -205,7 +205,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="30">Próximos 30 dias</SelectItem>
-                      <SelectItem value="60">Próóximos 60 dias</SelectItem>
+                      <SelectItem value="60">Próximos 60 dias</SelectItem>
                       <SelectItem value="90">Próximos 90 dias</SelectItem>
                       <SelectItem value="custom">Período customizado</SelectItem>
                     </SelectContent>
@@ -279,7 +279,7 @@ export default function ReportsPage() {
                     <TableHeader>
                     <TableRow>
                         <TableHead>Produto</TableHead>
-                        <TableHead>Lote</TableHead>
+                        <TableHead className="hidden md:table-cell">Lote</TableHead>
                         <TableHead className="hidden md:table-cell">Categoria</TableHead>
                         <TableHead className="text-right">Quantidade</TableHead>
                         <TableHead className="text-right">Data de Vencimento</TableHead>
@@ -292,7 +292,7 @@ export default function ReportsPage() {
                             <div className="font-medium">{product.name}</div>
                             <div className="text-sm text-muted-foreground">{product.code}</div>
                         </TableCell>
-                        <TableCell>{product.batch}</TableCell>
+                        <TableCell className="hidden md:table-cell">{product.batch}</TableCell>
                         <TableCell className="hidden md:table-cell">{product.category}</TableCell>
                         <TableCell className="text-right">{product.quantity}</TableCell>
                         <TableCell className="text-right">
@@ -308,7 +308,7 @@ export default function ReportsPage() {
           </div>
         </CardContent>
         {totalPages > 1 && (
-            <CardFooter className="flex items-center justify-between">
+            <CardFooter className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
                 <div className="text-xs text-muted-foreground">
                 Mostrando <strong>{paginatedProducts.length}</strong> de <strong>{filteredProducts.length}</strong> produtos
                 </div>
