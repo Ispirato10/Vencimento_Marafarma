@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -7,9 +8,10 @@ import { cn } from '@/lib/utils';
 
 interface MainNavProps {
   isMobile?: boolean;
+  onLinkClick?: () => void;
 }
 
-export function MainNav({ isMobile = false }: MainNavProps) {
+export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
   const pathname = usePathname();
 
   const navLinks = [
@@ -27,12 +29,15 @@ export function MainNav({ isMobile = false }: MainNavProps) {
       pathname === href && 'bg-muted text-primary'
     );
     
-  const linkContainer = isMobile ? 'div' : 'nav';
-
   return (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
       {navLinks.map((link) => (
-        <Link key={link.href} href={link.href} className={linkClass(link.href)}>
+        <Link 
+          key={link.href} 
+          href={link.href} 
+          className={linkClass(link.href)}
+          onClick={onLinkClick} // Fecha o menu no clique
+        >
           <link.icon className="h-4 w-4" />
           {link.label}
         </Link>
