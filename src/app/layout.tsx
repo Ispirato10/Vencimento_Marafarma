@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'Controle de Vencimentos Marafarma',
@@ -28,7 +27,6 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          {/* Toaster será movido para o layout do app para renderização no cliente */}
         </ThemeProvider>
       </body>
     </html>
