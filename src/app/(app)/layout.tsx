@@ -13,6 +13,7 @@ import { ClientOnly } from '@/components/client-only';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeToggle } from './_components/theme-toggle';
 import { SplashScreen } from './_components/splash-screen';
+import { InstallPWA } from './_components/install-pwa';
 
 function AppLayoutContent({
   children,
@@ -82,6 +83,7 @@ function AppLayoutContent({
           <div className="w-full flex-1">
             {/* Can add a search bar here later */}
           </div>
+          <InstallPWA />
           <ThemeToggle />
         </header>
         <main className="flex flex-1 flex-col gap-4 p-2 sm:p-4 lg:gap-6 lg:p-6 bg-background">
