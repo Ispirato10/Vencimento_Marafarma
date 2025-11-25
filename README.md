@@ -35,3 +35,4 @@ Após a conclusão, você encontrará o arquivo `marafarma-vencimentos.exe` na p
   - Personalize a imagem da tela de abertura e o tema (claro/escuro).
   - Limpe dados de produtos vencidos.
 - **Dados Locais:** Todos os dados são salvos localmente no seu computador, garantindo privacidade e funcionamento offline.
+
