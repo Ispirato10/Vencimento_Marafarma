@@ -83,13 +83,13 @@ export default function ProductsPage() {
     if (!debouncedSearchQuery) {
       return products;
     }
+    const query = debouncedSearchQuery.toLowerCase();
     return products.filter((product) => {
-      const query = debouncedSearchQuery.toLowerCase();
       if (searchType === 'name') {
         return product.name.toLowerCase().includes(query);
       }
       if (searchType === 'code') {
-        return product.code.toLowerCase().includes(query);
+        return product.code.toLowerCase() === query;
       }
       return true;
     });

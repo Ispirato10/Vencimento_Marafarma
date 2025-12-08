@@ -79,13 +79,13 @@ export default function CatalogPage() {
     if (!debouncedSearchQuery) {
       return catalog;
     }
+    const query = debouncedSearchQuery.toLowerCase();
     return catalog.filter((item) => {
-      const query = debouncedSearchQuery.toLowerCase();
       if (searchType === 'name') {
         return item.name.toLowerCase().includes(query);
       }
       if (searchType === 'code') {
-        return item.code.toLowerCase().includes(query);
+        return item.code.toLowerCase() === query;
       }
       return true;
     });
