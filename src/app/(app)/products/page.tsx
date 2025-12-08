@@ -84,17 +84,17 @@ export default function ProductsPage() {
       return products;
     }
     
-    if (searchType === 'name') {
-      return products.filter((product) =>
-        product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
-      );
-    }
+    const lowercasedQuery = debouncedSearchQuery.toLowerCase();
     
-    if (searchType === 'code') {
-        return products.filter((product) => product.code === debouncedSearchQuery);
-    }
-
-    return products;
+    return products.filter((product) => {
+      if (searchType === 'name') {
+        return product.name.toLowerCase().includes(lowercasedQuery);
+      }
+      if (searchType === 'code') {
+        return product.code.toLowerCase().includes(lowercasedQuery);
+      }
+      return true;
+    });
   }, [products, debouncedSearchQuery, searchType]);
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
