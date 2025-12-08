@@ -82,10 +82,11 @@ export default function CatalogPage() {
     
     return catalog.filter((item) => {
       if (searchType === 'name') {
+        // Partial, case-insensitive match for name
         return item.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
       }
       if (searchType === 'code') {
-        // Exact match for code, case-sensitive
+        // Exact, case-sensitive match for code
         return item.code === debouncedSearchQuery;
       }
       return true;

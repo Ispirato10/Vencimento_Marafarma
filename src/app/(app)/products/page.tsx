@@ -86,10 +86,11 @@ export default function ProductsPage() {
     
     return products.filter((product) => {
       if (searchType === 'name') {
+        // Partial, case-insensitive match for name
         return product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
       }
       if (searchType === 'code') {
-        // Exact match for code, case-sensitive
+        // Exact, case-sensitive match for code
         return product.code === debouncedSearchQuery;
       }
       return true;
@@ -324,5 +325,3 @@ export default function ProductsPage() {
     </>
   );
 }
-
-    
