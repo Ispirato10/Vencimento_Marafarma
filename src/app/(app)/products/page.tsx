@@ -83,13 +83,14 @@ export default function ProductsPage() {
     if (!debouncedSearchQuery) {
       return products;
     }
-    const query = debouncedSearchQuery.toLowerCase();
+    
     return products.filter((product) => {
       if (searchType === 'name') {
-        return product.name.toLowerCase().includes(query);
+        return product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
       }
       if (searchType === 'code') {
-        return product.code.toLowerCase() === query;
+        // Exact match for code, case-sensitive
+        return product.code === debouncedSearchQuery;
       }
       return true;
     });
@@ -323,3 +324,5 @@ export default function ProductsPage() {
     </>
   );
 }
+
+    

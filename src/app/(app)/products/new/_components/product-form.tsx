@@ -230,6 +230,7 @@ export function ProductForm() {
                         {...field}
                         ref={codeInputRef}
                         onBlur={handleCodeBlur}
+                        onKeyDown={(e) => handleKeyDown(e, nameInputRef)}
                       />
                        <Button
                           type="button"
@@ -371,3 +372,5 @@ export function ProductForm() {
     </>
   );
 }
+
+    

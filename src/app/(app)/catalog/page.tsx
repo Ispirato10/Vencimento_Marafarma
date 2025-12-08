@@ -79,13 +79,14 @@ export default function CatalogPage() {
     if (!debouncedSearchQuery) {
       return catalog;
     }
-    const query = debouncedSearchQuery.toLowerCase();
+    
     return catalog.filter((item) => {
       if (searchType === 'name') {
-        return item.name.toLowerCase().includes(query);
+        return item.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
       }
       if (searchType === 'code') {
-        return item.code.toLowerCase() === query;
+        // Exact match for code, case-sensitive
+        return item.code === debouncedSearchQuery;
       }
       return true;
     });
@@ -295,3 +296,5 @@ export default function CatalogPage() {
     </>
   );
 }
+
+    
